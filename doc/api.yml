@@ -3,18 +3,21 @@ info:
   title: HEI - Grade Management API
   description: >
     API for managing grades at the Higher Institute of Computer Science (HEI).
-    Covers the academic repository (cohorts, groups, courses, EL/TN tracks),
-    exams and grades (with history), grade transcripts (PDF via S3 + Poja email,
-    asynchronous), and the graduate list (Excel export).
-  version: "1.0.0"
+    Covers authentication (student/teacher/admin login), the academic repository
+    (cohorts, groups, courses, EL/TN tracks), exams and grades (with history),
+    grade transcripts (PDF via S3 + Poja email, asynchronous), and the graduate
+    list (Excel export).
+  version: "2.0.0"
 servers:
   - url: https://ykc5vnpsxpkahbcvse6pnvowt40mupoe.lambda-url.eu-west-3.on.aws/
     description: Poja deployment environment (AWS Lambda)
 
 tags:
+  - name: Auth
   - name: Cohorts
   - name: Groups
   - name: Students
+  - name: Teachers
   - name: Courses
   - name: Exams
   - name: Grades
@@ -26,6 +29,33 @@ security:
   - bearerAuth: []
 
 paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate a user (student, teacher, or admin)
+      description: >
+        Public endpoint (no token required). Authenticates with an auto-generated
+        email (hei.firstname@student.com / @teacher.com / @admin.com) and a password,
+        and returns a JWT. The email domain must be consistent with the user's actual
+        role in the database; this is enforced server-side, not merely inferred.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /promotions:
     get:
       tags: [Cohorts]
@@ -100,7 +130,10 @@ paths:
     post:
       tags: [Students]
       summary: Add a student
-      description: Restricted to ADMIN role.
+      description: >
+        Restricted to ADMIN role. The email is NOT provided by the caller: it is
+        generated server-side as hei.firstname@student.com. An initial password is
+        generated as well (to be reset on first login).
       requestBody:
         required: true
         content:
@@ -172,6 +205,28 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Student" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /teachers:
+    post:
+      tags: [Teachers]
+      summary: Add a teacher
+      description: >
+        Restricted to ADMIN role. Not present in the initial spec, but required
+        since teacher accounts must be creatable. The email is generated server-side
+        as hei.firstname@teacher.com; an initial password is generated as well.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeacherCreateRequest" }
+      responses:
+        "201":
+          description: Teacher created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Teacher" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
   /courses:
@@ -452,6 +507,7 @@ paths:
       description: >
         Restricted to ADMIN role. HTML page listing all cohorts, with a download button
         for Excel graduates per cohort (calls GET /promotions/{id}/graduates/export).
+        Reached only after login through the shared login page (see /auth/login).
       responses:
         "200":
           description: HTML page
@@ -541,6 +597,26 @@ components:
       type: string
       enum: [PROVISIONAL, COMPLETE]
 
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Auto-generated login email (hei.firstname@student.com / @teacher.com / @admin.com).
+          example: "hei.jean@student.com"
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string, description: "JWT access token" }
+        role: { $ref: "#/components/schemas/Role" }
+        userId: { type: string, format: uuid }
+
     Cohort:
       type: object
       properties:
@@ -582,7 +658,11 @@ components:
         ref: { type: string, example: "STD00123" }
         name: { type: string }
         firstname: { type: string }
-        email: { type: string, format: email }
+        email:
+          type: string
+          format: email
+          description: Server-generated, read-only (hei.firstname@student.com).
+          readOnly: true
         cohortId: { type: string, format: uuid }
         groupId: { type: string, format: uuid }
         track: { $ref: "#/components/schemas/Track" }
@@ -590,11 +670,10 @@ components:
 
     StudentCreateRequest:
       type: object
-      required: [name, firstname, email, cohortId]
+      required: [name, firstname, cohortId]
       properties:
         name: { type: string }
         firstname: { type: string }
-        email: { type: string, format: email }
         address: { type: string }
         birthdate: { type: string, format: date }
         cohortId: { type: string, format: uuid }
@@ -602,6 +681,28 @@ components:
           type: string
           format: uuid
           description: Optional — if absent, automatic assignment.
+
+    Teacher:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        ref: { type: string, example: "TCR00045" }
+        name: { type: string }
+        firstname: { type: string }
+        email:
+          type: string
+          format: email
+          description: Server-generated, read-only (hei.firstname@teacher.com).
+          readOnly: true
+
+    TeacherCreateRequest:
+      type: object
+      required: [name, firstname]
+      properties:
+        name: { type: string }
+        firstname: { type: string }
+        address: { type: string }
+        birthdate: { type: string, format: date }
 
     Course:
       type: object
@@ -738,7 +839,7 @@ components:
       type: object
       properties:
         rank: { type: integer }
-        studentRef: { type: string, example: "STD00042" }
+        studentRef: { type: string, example: "STD24042" }
         name: { type: string }
         firstname: { type: string }
         overallAverage: { type: number, format: double }
