@@ -26,16 +26,17 @@ public class JGradeHistory {
   @JoinColumn(name = "grade_id", nullable = false)
   private JGrade grade;
 
+  @Column(name = "old_value")
   private Double oldValue;
 
-  @Column(nullable = false)
+  @Column(name = "new_value", nullable = false)
   private Double newValue;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "changed_by")
   private JUser changedBy;
 
-  @Column(nullable = false)
+  @Column(name = "changed_at", nullable = false)
   private Instant changedAt;
 
   @Column(nullable = false, length = 500)

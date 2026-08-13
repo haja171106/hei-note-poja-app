@@ -24,6 +24,6 @@ public class JCohort {
   @Column(nullable = false, unique = true, length = 10)
   private String ref;
 
-  @Column(nullable = false)
+  @Column(name = "entry_year", nullable = false)
   private Integer entryYear;
 }

@@ -42,6 +42,6 @@ public class JGrade {
   @JoinColumn(name = "entered_by")
   private JUser enteredBy;
 
-  @Column(nullable = false)
+  @Column(name = "entered_at", nullable = false)
   private Instant enteredAt;
 }

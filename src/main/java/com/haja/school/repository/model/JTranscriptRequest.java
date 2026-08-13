@@ -27,14 +27,14 @@ public class JTranscriptRequest {
   @JoinColumn(name = "student_id", nullable = false)
   private JUser student;
 
-  @Column(nullable = false)
+  @Column(name = "academic_year", nullable = false)
   private Integer academicYear;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private ReportStatus status;
 
-  @Column(nullable = false)
+  @Column(name = "requested_at", nullable = false)
   private Instant requestedAt;
 
   @ManyToOne(fetch = FetchType.LAZY)

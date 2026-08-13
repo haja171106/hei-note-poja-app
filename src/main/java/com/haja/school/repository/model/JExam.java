@@ -26,13 +26,13 @@ public class JExam {
   @JoinColumn(name = "course_id", nullable = false)
   private JCourse course;
 
-  @Column(nullable = false)
+  @Column(name = "academic_year", nullable = false)
   private Integer academicYear;
 
   @Column(nullable = false, length = 100)
   private String label;
 
-  @Column(nullable = false)
+  @Column(name = "date_exam", nullable = false)
   private Instant dateExam;
 
   @Column(nullable = false)
