@@ -4,7 +4,6 @@ create table if not exists "user" (
     name varchar(100) not null,
     firstname varchar(100) not null,
     email varchar(255) not null unique,
-    password varchar(255),
     role varchar(20) not null,
     track varchar(10),
     cursus_status varchar(20),
