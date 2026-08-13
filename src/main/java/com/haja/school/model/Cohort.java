@@ -17,4 +17,6 @@ public class Cohort {
   private UUID id;
   private String ref;
   private Integer entryYear;
+  private Long studentCount;
+  private Long groupCount;
 }
