@@ -37,6 +37,9 @@ public class JUser {
   @Column(nullable = false, unique = true, length = 255)
   private String email;
 
+  @Column(length = 255)
+  private String password;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private Role role;
