@@ -17,4 +17,5 @@ public class Group {
   private UUID id;
   private String ref;
   private UUID cohortId;
+  private Integer academicYear;
 }

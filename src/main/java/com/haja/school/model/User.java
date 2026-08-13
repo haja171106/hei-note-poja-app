@@ -20,6 +20,7 @@ public class User {
   private String name;
   private String firstname;
   private String email;
+  private String password;
   private Role role;
   private Track track;
   private CursusStatus cursusStatus;

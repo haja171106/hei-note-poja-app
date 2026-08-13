@@ -27,4 +27,7 @@ public class JGroup {
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "cohort_id", nullable = false)
   private JCohort cohort;
+
+  @Column(name = "academic_year")
+  private Integer academicYear;
 }
