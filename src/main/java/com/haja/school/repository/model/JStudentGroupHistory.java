@@ -30,8 +30,9 @@ public class JStudentGroupHistory {
   @JoinColumn(name = "group_id", nullable = false)
   private JGroup group;
 
-  @Column(nullable = false)
+  @Column(name = "start_date", nullable = false)
   private LocalDate startDate;
 
+  @Column(name = "end_date")
   private LocalDate endDate;
 }

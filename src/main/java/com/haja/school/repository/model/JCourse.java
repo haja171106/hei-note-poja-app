@@ -31,7 +31,7 @@ public class JCourse {
   @Column(nullable = false)
   private Integer credit;
 
-  @Column(nullable = false)
+  @Column(name = "semester_number", nullable = false)
   private Integer semesterNumber;
 
   @Enumerated(EnumType.STRING)
