@@ -18,4 +18,5 @@ public class Group {
   private String ref;
   private UUID cohortId;
   private Integer academicYear;
+  private Long studentCount;
 }
