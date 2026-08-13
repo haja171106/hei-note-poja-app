@@ -29,10 +29,8 @@ public class AuthService {
                     new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
-    // Business rule: Verify email domain matches actual role in DB
     verifyEmailDomainMatchesRole(request.getEmail(), user.getRole());
 
-    // Password verification
     if (user.getPassword() != null
         && !passwordEncoder.matches(request.getPassword(), user.getPassword())
         && !request.getPassword().equals(user.getPassword())) {
