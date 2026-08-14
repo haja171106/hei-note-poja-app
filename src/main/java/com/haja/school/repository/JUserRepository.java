@@ -1,5 +1,6 @@
 package com.haja.school.repository;
 
+import com.haja.school.model.Role;
 import com.haja.school.repository.model.JUser;
 import java.util.List;
 import java.util.Optional;
@@ -14,4 +15,8 @@ public interface JUserRepository extends JpaRepository<JUser, UUID> {
   boolean existsByEmail(String email);
 
   List<JUser> findByCohortId(UUID cohortId);
+
+  List<JUser> findByRole(Role role);
+
+  List<JUser> findByRefStartingWith(String prefix);
 }
