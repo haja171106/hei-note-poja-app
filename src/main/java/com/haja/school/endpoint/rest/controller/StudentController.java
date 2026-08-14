@@ -2,6 +2,7 @@ package com.haja.school.endpoint.rest.controller;
 
 import com.haja.school.endpoint.rest.model.GroupChangeRequest;
 import com.haja.school.endpoint.rest.model.StudentCreateRequest;
+import com.haja.school.endpoint.rest.model.TrackAssignRequest;
 import com.haja.school.model.Student;
 import com.haja.school.service.StudentService;
 import jakarta.validation.Valid;
@@ -43,5 +44,12 @@ public class StudentController {
   public ResponseEntity<Student> changeGroup(
       @PathVariable UUID id, @Valid @RequestBody GroupChangeRequest request) {
     return ResponseEntity.ok(studentService.changeStudentGroup(id, request));
+  }
+
+  @PatchMapping("/{id}/parcours")
+  @PreAuthorize("hasRole('ADMIN')")
+  public ResponseEntity<Student> assignTrack(
+      @PathVariable UUID id, @Valid @RequestBody TrackAssignRequest request) {
+    return ResponseEntity.ok(studentService.assignStudentTrack(id, request));
   }
 }
