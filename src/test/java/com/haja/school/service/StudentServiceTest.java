@@ -7,9 +7,11 @@ import static org.mockito.Mockito.*;
 
 import com.haja.school.endpoint.rest.model.GroupChangeRequest;
 import com.haja.school.endpoint.rest.model.StudentCreateRequest;
+import com.haja.school.endpoint.rest.model.TrackAssignRequest;
 import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Role;
 import com.haja.school.model.Student;
+import com.haja.school.model.Track;
 import com.haja.school.repository.JCohortRepository;
 import com.haja.school.repository.JGroupRepository;
 import com.haja.school.repository.JStudentGroupHistoryRepository;
@@ -229,5 +231,51 @@ class StudentServiceTest {
     assertNotNull(updatedStudent);
     assertEquals(newGroupId, updatedStudent.getGroupId());
     verify(studentGroupHistoryRepository, times(1)).save(any());
+  }
+
+  @Test
+  void assignStudentTrack_success() {
+    UUID studentId = UUID.randomUUID();
+    JCohort cohort2024 = JCohort.builder().id(UUID.randomUUID()).entryYear(2024).build();
+
+    JUser student =
+        JUser.builder()
+            .id(studentId)
+            .role(Role.STUDENT)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .cohort(cohort2024)
+            .build();
+
+    TrackAssignRequest request = TrackAssignRequest.builder().track(Track.EL).build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.save(any(JUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    Student updatedStudent = studentService.assignStudentTrack(studentId, request);
+
+    assertNotNull(updatedStudent);
+    assertEquals(Track.EL, updatedStudent.getTrack());
+    verify(userRepository).save(student);
+  }
+
+  @Test
+  void assignStudentTrack_semesterLessThan4_throwsException() {
+    UUID studentId = UUID.randomUUID();
+    JCohort cohort2026 = JCohort.builder().id(UUID.randomUUID()).entryYear(2026).build();
+
+    JUser student =
+        JUser.builder()
+            .id(studentId)
+            .role(Role.STUDENT)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .cohort(cohort2026)
+            .build();
+
+    TrackAssignRequest request = TrackAssignRequest.builder().track(Track.TN).build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+
+    assertThrows(
+        ResponseStatusException.class, () -> studentService.assignStudentTrack(studentId, request));
   }
 }

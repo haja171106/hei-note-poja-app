@@ -2,6 +2,7 @@ package com.haja.school.service;
 
 import com.haja.school.endpoint.rest.model.GroupChangeRequest;
 import com.haja.school.endpoint.rest.model.StudentCreateRequest;
+import com.haja.school.endpoint.rest.model.TrackAssignRequest;
 import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Role;
 import com.haja.school.model.Student;
@@ -166,6 +167,55 @@ public class StudentService {
         .track(student.getTrack())
         .status(student.getCursusStatus())
         .build();
+  }
+
+  @Transactional
+  public Student assignStudentTrack(UUID studentId, TrackAssignRequest request) {
+    JUser student =
+        userRepository
+            .findById(studentId)
+            .filter(u -> u.getRole() == Role.STUDENT)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+
+    if (student.getCohort() == null || student.getCohort().getEntryYear() == null) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Student is not assigned to a valid cohort with entry year");
+    }
+
+    int currentSemester = computeCurrentSemester(student.getCohort().getEntryYear());
+    if (currentSemester < 4) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Track assignment is only allowed from the 4th semester onwards");
+    }
+
+    student.setTrack(request.getTrack());
+    JUser savedStudent = userRepository.save(student);
+
+    UUID activeGroupId =
+        studentGroupHistoryRepository
+            .findByStudentIdAndEndDateIsNull(studentId)
+            .map(history -> history.getGroup().getId())
+            .orElse(null);
+
+    return Student.builder()
+        .id(savedStudent.getId())
+        .ref(savedStudent.getRef())
+        .name(savedStudent.getName())
+        .firstname(savedStudent.getFirstname())
+        .email(savedStudent.getEmail())
+        .cohortId(savedStudent.getCohort() != null ? savedStudent.getCohort().getId() : null)
+        .groupId(activeGroupId)
+        .track(savedStudent.getTrack())
+        .status(savedStudent.getCursusStatus())
+        .build();
+  }
+
+  private int computeCurrentSemester(int entryYear) {
+    int currentYear = LocalDate.now().getYear();
+    int currentMonth = LocalDate.now().getMonthValue();
+    int yearsPassed = currentYear - entryYear;
+    return yearsPassed * 2 + (currentMonth >= 9 ? 1 : 0);
   }
 
   private String generateStudentRef() {
