@@ -285,7 +285,6 @@
                 </div>
             </div>
 
-            <!-- Dynamic Cohorts List -->
             <div th:if="${cohorts != null and !#lists.isEmpty(cohorts)}" class="cohorts-grid">
                 <div th:each="cohort : ${cohorts}" class="cohort-card">
                     <div>
@@ -312,7 +311,6 @@
                 </div>
             </div>
 
-            <!-- Empty State Fallback -->
             <div th:if="${cohorts == null or #lists.isEmpty(cohorts)}" class="empty-state">
                 <div class="empty-icon">📂</div>
                 <h3>No Promotions Found</h3>

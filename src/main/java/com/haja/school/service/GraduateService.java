@@ -85,7 +85,6 @@ public class GraduateService {
 
       Sheet sheet = workbook.createSheet("Graduates - " + cohort.getRef());
 
-      // Header Style
       CellStyle headerStyle = workbook.createCellStyle();
       Font headerFont = workbook.createFont();
       headerFont.setBold(true);
@@ -94,7 +93,6 @@ public class GraduateService {
       headerStyle.setFillForegroundColor(IndexedColors.INDIGO.getIndex());
       headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-      // Header Row
       Row headerRow = sheet.createRow(0);
       String[] columns = {"Rank", "Student Ref", "Name", "Firstname", "Overall Average"};
       for (int i = 0; i < columns.length; i++) {
@@ -103,7 +101,6 @@ public class GraduateService {
         cell.setCellStyle(headerStyle);
       }
 
-      // Data Rows
       int rowIdx = 1;
       for (Graduate graduate : graduates) {
         Row row = sheet.createRow(rowIdx++);
