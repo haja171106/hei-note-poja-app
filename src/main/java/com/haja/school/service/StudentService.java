@@ -1,5 +1,6 @@
 package com.haja.school.service;
 
+import com.haja.school.endpoint.rest.model.GroupChangeRequest;
 import com.haja.school.endpoint.rest.model.StudentCreateRequest;
 import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Role;
@@ -122,6 +123,49 @@ public class StudentService {
               history.setEndDate(LocalDate.now());
               studentGroupHistoryRepository.save(history);
             });
+  }
+
+  @Transactional
+  public Student changeStudentGroup(UUID studentId, GroupChangeRequest request) {
+    JUser student =
+        userRepository
+            .findById(studentId)
+            .filter(u -> u.getRole() == Role.STUDENT)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+
+    JGroup newGroup =
+        groupRepository
+            .findById(request.getNewGroupId())
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found"));
+
+    studentGroupHistoryRepository
+        .findByStudentIdAndEndDateIsNull(studentId)
+        .ifPresent(
+            history -> {
+              history.setEndDate(request.getEffectiveDate());
+              studentGroupHistoryRepository.save(history);
+            });
+
+    studentGroupHistoryRepository.save(
+        JStudentGroupHistory.builder()
+            .student(student)
+            .group(newGroup)
+            .startDate(request.getEffectiveDate())
+            .build());
+
+    return Student.builder()
+        .id(student.getId())
+        .ref(student.getRef())
+        .name(student.getName())
+        .firstname(student.getFirstname())
+        .email(student.getEmail())
+        .cohortId(student.getCohort() != null ? student.getCohort().getId() : null)
+        .groupId(newGroup.getId())
+        .track(student.getTrack())
+        .status(student.getCursusStatus())
+        .build();
   }
 
   private String generateStudentRef() {
