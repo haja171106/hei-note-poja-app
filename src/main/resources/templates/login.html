@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEI - Connexion Gestion des Notes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-gradient-1: #0f172a;
+            --bg-gradient-2: #1e1b4b;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --error: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at top left, var(--bg-gradient-2), var(--bg-gradient-1));
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        .background-glow {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .login-card {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 440px;
+            padding: 2.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+            padding: 0.5rem 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #ffffff;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .role-chips {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .role-chip {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .role-chip:hover {
+            border-color: #6366f1;
+            color: #ffffff;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 0.4rem;
+            color: #e2e8f0;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(15, 23, 42, 0.6);
+            color: #ffffff;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 0.9rem;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 1rem;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px -10px rgba(79, 70, 229, 0.5);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .footer-text {
+            text-align: center;
+            margin-top: 1.75rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="background-glow"></div>
+
+    <div class="login-card">
+        <div class="logo-container">
+            <div class="logo-badge">HEI NOTES</div>
+            <h1 class="title">Espace de Connexion</h1>
+            <p class="subtitle">Haute École d'Informatique &bull; Portail Unique</p>
+            <div class="role-chips">
+                <span class="role-chip" onclick="fillPreset('hei.jean@student.com')">Étudiant</span>
+                <span class="role-chip" onclick="fillPreset('hei.prof@teacher.com')">Enseignant</span>
+                <span class="role-chip" onclick="fillPreset('hei.admin@admin.com')">Admin</span>
+            </div>
+        </div>
+
+        <div id="errorBanner" class="alert-error">
+            Email ou mot de passe incorrect.
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email Institutionnel</label>
+                <input type="email" id="email" required placeholder="ex: hei.nom@student.com / @teacher.com / @admin.com">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+            </div>
+
+            <button type="submit" class="btn-submit" id="submitBtn">Se connecter</button>
+        </form>
+
+        <div class="footer-text">
+            Gestion des Notes &bull; LMD Licence &bull; Redirection automatique selon rôle
+        </div>
+    </div>
+
+    <script>
+        function fillPreset(email) {
+            document.getElementById('email').value = email;
+            document.getElementById('password').focus();
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const errorBanner = document.getElementById('errorBanner');
+            const submitBtn = document.getElementById('submitBtn');
+
+            errorBanner.style.display = 'none';
+            submitBtn.innerText = 'Connexion en cours...';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.message || 'Échec de la connexion');
+                }
+
+                const data = await response.json();
+                
+                // Save JWT Token in Cookie and localStorage
+                document.cookie = `jwt_token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('role', data.role);
+                localStorage.setItem('userId', data.userId);
+
+                // Redirect based on user role
+                if (data.role === 'ADMIN') {
+                    window.location.href = '/ui/admin';
+                } else if (data.role === 'TEACHER') {
+                    window.location.href = '/ui/teacher';
+                } else if (data.role === 'STUDENT') {
+                    window.location.href = '/ui/student';
+                } else {
+                    window.location.href = '/';
+                }
+            } catch (err) {
+                errorBanner.innerText = err.message || 'Email ou mot de passe invalide.';
+                errorBanner.style.display = 'block';
+            } finally {
+                submitBtn.innerText = 'Se connecter';
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

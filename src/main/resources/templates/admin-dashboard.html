@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEI - Tableau de bord Administration</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #10b981;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge-role {
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.4);
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .welcome-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .welcome-title { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .welcome-subtitle { color: var(--text-secondary); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .action-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .action-card:hover {
+            transform: translateY(-3px);
+            border-color: #6366f1;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(99, 102, 241, 0.15);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .card-desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">HEI &bull; Portal Administration</div>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <span class="badge-role">ADMINISTRATEUR</span>
+            <button class="logout-btn" onclick="logout()">Déconnexion</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="welcome-card">
+            <h1 class="welcome-title">Bienvenue, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Administrateur'}">Admin</span></h1>
+            <p class="welcome-subtitle">Tableau de bord de gestion des promotions, étudiants, enseignants et bulletins.</p>
+        </div>
+
+        <div class="grid">
+            <div class="action-card">
+                <div class="card-icon">🎓</div>
+                <h2 class="card-title">Promotions & Groupes</h2>
+                <p class="card-desc">Consulter les cohortes, ajouter une promotion et générer les groupes équilibrés.</p>
+            </div>
+
+            <div class="action-card">
+                <div class="card-icon">👨‍🎓</div>
+                <h2 class="card-title">Gestion Étudiants</h2>
+                <p class="card-desc">Inscrire de nouveaux étudiants, changement de groupe et affectation de parcours (EL/TN).</p>
+            </div>
+
+            <div class="action-card">
+                <div class="card-icon">👨‍🏫</div>
+                <h2 class="card-title">Gestion Enseignants</h2>
+                <p class="card-desc">Ajouter des enseignants et affecter les cours par année académique.</p>
+            </div>
+
+            <div class="action-card">
+                <div class="card-icon">📊</div>
+                <h2 class="card-title">Export Diplômés & Bulletins</h2>
+                <p class="card-desc">Générer le fichier Excel des diplômés et émettre les bulletins PDF.</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function logout() {
+            document.cookie = 'jwt_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+            localStorage.clear();
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>
