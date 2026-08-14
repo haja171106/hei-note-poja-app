@@ -34,14 +34,27 @@ public class SecurityConf {
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
+                        "/",
+                        "/login",
+                        "/ui/login",
                         "/auth/login",
                         "/ping",
                         "/health/**",
                         "/swagger-ui/**",
                         "/swagger-ui.html",
                         "/v3/api-docs/**",
+                        "/css/**",
+                        "/js/**",
+                        "/images/**",
+                        "/favicon.ico",
                         "/error")
                     .permitAll()
+                    .requestMatchers("/ui/admin/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers("/ui/teacher/**")
+                    .hasRole("TEACHER")
+                    .requestMatchers("/ui/student/**")
+                    .hasRole("STUDENT")
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

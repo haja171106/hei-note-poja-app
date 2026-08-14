@@ -2,6 +2,7 @@ package com.haja.school.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -49,6 +50,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     String headerAuth = request.getHeader("Authorization");
     if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
       return headerAuth.substring(7);
+    }
+    if (request.getCookies() != null) {
+      for (Cookie cookie : request.getCookies()) {
+        if ("jwt_token".equals(cookie.getName()) || "token".equals(cookie.getName())) {
+          return cookie.getValue();
+        }
+      }
     }
     return null;
   }
