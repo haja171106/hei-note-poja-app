@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import com.haja.school.endpoint.rest.model.GroupChangeRequest;
 import com.haja.school.endpoint.rest.model.StudentCreateRequest;
 import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Role;
@@ -199,5 +200,34 @@ class StudentServiceTest {
     when(userRepository.findById(studentId)).thenReturn(Optional.empty());
 
     assertThrows(ResponseStatusException.class, () -> studentService.deleteStudent(studentId));
+  }
+
+  @Test
+  void changeStudentGroup_success() {
+    UUID studentId = UUID.randomUUID();
+    UUID newGroupId = UUID.randomUUID();
+    LocalDate effectiveDate = LocalDate.of(2026, 9, 1);
+
+    JUser student =
+        JUser.builder()
+            .id(studentId)
+            .role(Role.STUDENT)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .cohort(cohort)
+            .build();
+
+    JGroup newGroup = JGroup.builder().id(newGroupId).cohort(cohort).ref("A2").build();
+
+    GroupChangeRequest request =
+        GroupChangeRequest.builder().newGroupId(newGroupId).effectiveDate(effectiveDate).build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(groupRepository.findById(newGroupId)).thenReturn(Optional.of(newGroup));
+
+    Student updatedStudent = studentService.changeStudentGroup(studentId, request);
+
+    assertNotNull(updatedStudent);
+    assertEquals(newGroupId, updatedStudent.getGroupId());
+    verify(studentGroupHistoryRepository, times(1)).save(any());
   }
 }
