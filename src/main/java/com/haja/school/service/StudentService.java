@@ -103,6 +103,27 @@ public class StudentService {
         .build();
   }
 
+  @Transactional
+  public void deleteStudent(UUID studentId) {
+    JUser student =
+        userRepository
+            .findById(studentId)
+            .filter(u -> u.getRole() == Role.STUDENT)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+
+    student.setCursusStatus(CursusStatus.DROPPED_OUT);
+    userRepository.save(student);
+
+    studentGroupHistoryRepository
+        .findByStudentIdAndEndDateIsNull(studentId)
+        .ifPresent(
+            history -> {
+              history.setEndDate(LocalDate.now());
+              studentGroupHistoryRepository.save(history);
+            });
+  }
+
   private String generateStudentRef() {
     List<JUser> students = userRepository.findByRefStartingWith("STD");
     int maxNumber = 0;
