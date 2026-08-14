@@ -4,23 +4,25 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.haja.school.repository.JUserRepository;
+import com.haja.school.security.JwtAuthFilter;
 import com.haja.school.security.JwtProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(controllers = LoginViewController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class LoginViewControllerTest {
 
   @Autowired private MockMvc mockMvc;
 
   @MockBean private JUserRepository userRepository;
   @MockBean private JwtProvider jwtProvider;
+  @MockBean private JwtAuthFilter jwtAuthFilter;
 
   @Test
   void loginPage_unauthenticated_returnsLoginView() throws Exception {
