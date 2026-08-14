@@ -26,31 +26,38 @@ class LoginViewControllerTest {
 
   @Test
   void loginPage_unauthenticated_returnsLoginView() throws Exception {
-    mockMvc.perform(get("/login"))
-        .andExpect(status().isOk())
-        .andExpect(view().name("login"));
+    mockMvc.perform(get("/login")).andExpect(status().isOk()).andExpect(view().name("login"));
   }
 
   @Test
-  @WithMockUser(username = "hei.admin@admin.com", roles = {"ADMIN"})
+  @WithMockUser(
+      username = "hei.admin@admin.com",
+      roles = {"ADMIN"})
   void adminDashboard_withAdminRole_returnsAdminView() throws Exception {
-    mockMvc.perform(get("/ui/admin"))
+    mockMvc
+        .perform(get("/ui/admin"))
         .andExpect(status().isOk())
         .andExpect(view().name("admin-dashboard"));
   }
 
   @Test
-  @WithMockUser(username = "hei.prof@teacher.com", roles = {"TEACHER"})
+  @WithMockUser(
+      username = "hei.prof@teacher.com",
+      roles = {"TEACHER"})
   void teacherDashboard_withTeacherRole_returnsTeacherView() throws Exception {
-    mockMvc.perform(get("/ui/teacher"))
+    mockMvc
+        .perform(get("/ui/teacher"))
         .andExpect(status().isOk())
         .andExpect(view().name("teacher-dashboard"));
   }
 
   @Test
-  @WithMockUser(username = "hei.student@student.com", roles = {"STUDENT"})
+  @WithMockUser(
+      username = "hei.student@student.com",
+      roles = {"STUDENT"})
   void studentDashboard_withStudentRole_returnsStudentView() throws Exception {
-    mockMvc.perform(get("/ui/student"))
+    mockMvc
+        .perform(get("/ui/student"))
         .andExpect(status().isOk())
         .andExpect(view().name("student-dashboard"));
   }
