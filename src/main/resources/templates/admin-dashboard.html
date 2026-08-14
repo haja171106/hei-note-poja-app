@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEI - Tableau de bord Administration</title>
+    <title>HEI - Administration Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -124,42 +124,42 @@
 </head>
 <body>
     <header>
-        <div class="brand">HEI &bull; Portal Administration</div>
+        <div class="brand">HEI &bull; Admin Portal</div>
         <div style="display: flex; align-items: center; gap: 1rem;">
-            <span class="badge-role">ADMINISTRATEUR</span>
-            <button class="logout-btn" onclick="logout()">Déconnexion</button>
+            <span class="badge-role">ADMINISTRATOR</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
 
     <main>
         <div class="welcome-card">
-            <h1 class="welcome-title">Bienvenue, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Administrateur'}">Admin</span></h1>
-            <p class="welcome-subtitle">Tableau de bord de gestion des promotions, étudiants, enseignants et bulletins.</p>
+            <h1 class="welcome-title">Welcome, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Administrator'}">Admin</span></h1>
+            <p class="welcome-subtitle">Dashboard for managing cohorts, students, teachers, and grade transcripts.</p>
         </div>
 
         <div class="grid">
             <div class="action-card">
                 <div class="card-icon">🎓</div>
-                <h2 class="card-title">Promotions & Groupes</h2>
-                <p class="card-desc">Consulter les cohortes, ajouter une promotion et générer les groupes équilibrés.</p>
+                <h2 class="card-title">Cohorts & Groups</h2>
+                <p class="card-desc">View cohorts, create new promotions, and generate balanced student groups.</p>
             </div>
 
             <div class="action-card">
                 <div class="card-icon">👨‍🎓</div>
-                <h2 class="card-title">Gestion Étudiants</h2>
-                <p class="card-desc">Inscrire de nouveaux étudiants, changement de groupe et affectation de parcours (EL/TN).</p>
+                <h2 class="card-title">Student Management</h2>
+                <p class="card-desc">Register new students, change student groups, and assign tracks (EL/TN).</p>
             </div>
 
             <div class="action-card">
                 <div class="card-icon">👨‍🏫</div>
-                <h2 class="card-title">Gestion Enseignants</h2>
-                <p class="card-desc">Ajouter des enseignants et affecter les cours par année académique.</p>
+                <h2 class="card-title">Teacher Management</h2>
+                <p class="card-desc">Add new teachers and assign course responsibilities per academic year.</p>
             </div>
 
             <div class="action-card">
                 <div class="card-icon">📊</div>
-                <h2 class="card-title">Export Diplômés & Bulletins</h2>
-                <p class="card-desc">Générer le fichier Excel des diplômés et émettre les bulletins PDF.</p>
+                <h2 class="card-title">Graduate Export & Transcripts</h2>
+                <p class="card-desc">Generate graduate Excel reports and issue official PDF transcripts.</p>
             </div>
         </div>
     </main>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEI - Connexion Gestion des Notes</title>
+    <title>HEI - Grade Management Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -196,35 +196,35 @@
     <div class="login-card">
         <div class="logo-container">
             <div class="logo-badge">HEI NOTES</div>
-            <h1 class="title">Espace de Connexion</h1>
-            <p class="subtitle">Haute École d'Informatique &bull; Portail Unique</p>
+            <h1 class="title">Login Portal</h1>
+            <p class="subtitle">Higher Institute of Computer Science &bull; Unified Portal</p>
             <div class="role-chips">
-                <span class="role-chip" onclick="fillPreset('hei.jean@student.com')">Étudiant</span>
-                <span class="role-chip" onclick="fillPreset('hei.prof@teacher.com')">Enseignant</span>
+                <span class="role-chip" onclick="fillPreset('hei.jean@student.com')">Student</span>
+                <span class="role-chip" onclick="fillPreset('hei.prof@teacher.com')">Teacher</span>
                 <span class="role-chip" onclick="fillPreset('hei.admin@admin.com')">Admin</span>
             </div>
         </div>
 
         <div id="errorBanner" class="alert-error">
-            Email ou mot de passe incorrect.
+            Invalid email or password.
         </div>
 
         <form id="loginForm">
             <div class="form-group">
-                <label for="email">Email Institutionnel</label>
-                <input type="email" id="email" required placeholder="ex: hei.nom@student.com / @teacher.com / @admin.com">
+                <label for="email">Institutional Email</label>
+                <input type="email" id="email" required placeholder="e.g. hei.name@student.com / @teacher.com / @admin.com">
             </div>
 
             <div class="form-group">
-                <label for="password">Mot de passe</label>
+                <label for="password">Password</label>
                 <input type="password" id="password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
             </div>
 
-            <button type="submit" class="btn-submit" id="submitBtn">Se connecter</button>
+            <button type="submit" class="btn-submit" id="submitBtn">Sign In</button>
         </form>
 
         <div class="footer-text">
-            Gestion des Notes &bull; LMD Licence &bull; Redirection automatique selon rôle
+            Grade Management &bull; LMD License &bull; Automatic Role Redirection
         </div>
     </div>
 
@@ -242,7 +242,7 @@
             const submitBtn = document.getElementById('submitBtn');
 
             errorBanner.style.display = 'none';
-            submitBtn.innerText = 'Connexion en cours...';
+            submitBtn.innerText = 'Signing in...';
             submitBtn.disabled = true;
 
             try {
@@ -254,7 +254,7 @@
 
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.message || 'Échec de la connexion');
+                    throw new Error(errData.message || 'Authentication failed');
                 }
 
                 const data = await response.json();
@@ -276,10 +276,10 @@
                     window.location.href = '/';
                 }
             } catch (err) {
-                errorBanner.innerText = err.message || 'Email ou mot de passe invalide.';
+                errorBanner.innerText = err.message || 'Invalid email or password.';
                 errorBanner.style.display = 'block';
             } finally {
-                submitBtn.innerText = 'Se connecter';
+                submitBtn.innerText = 'Sign In';
                 submitBtn.disabled = false;
             }
         });

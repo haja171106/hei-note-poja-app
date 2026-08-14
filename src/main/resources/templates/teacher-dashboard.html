@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEI - Espace Enseignant</title>
+    <title>HEI - Teacher Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -94,27 +94,27 @@
 </head>
 <body>
     <header>
-        <div class="brand">HEI &bull; Espace Enseignant</div>
+        <div class="brand">HEI &bull; Teacher Portal</div>
         <div style="display: flex; align-items: center; gap: 1rem;">
-            <span class="badge-role">ENSEIGNANT</span>
-            <button class="logout-btn" onclick="logout()">Déconnexion</button>
+            <span class="badge-role">TEACHER</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
 
     <main>
         <div class="welcome-card">
-            <h1>Bienvenue, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Enseignant'}">Professeur</span></h1>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Saisie et gestion des notes pour vos cours assignés.</p>
+            <h1>Welcome, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Teacher'}">Teacher</span></h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Grade entry and management for your assigned courses.</p>
         </div>
 
         <div class="grid">
             <div class="card">
-                <h3>📚 Mes Matières</h3>
-                <p style="color: var(--text-secondary); margin-top: 0.5rem;">Consulter la liste de vos cours attribués pour l'année académique en cours.</p>
+                <h3>📚 My Courses</h3>
+                <p style="color: var(--text-secondary); margin-top: 0.5rem;">View your assigned course list for the current academic year.</p>
             </div>
             <div class="card">
-                <h3>📝 Saisie des Notes</h3>
-                <p style="color: var(--text-secondary); margin-top: 0.5rem;">Saisir et modifier les notes d'examens avec suivi d'historique.</p>
+                <h3>📝 Grade Entry</h3>
+                <p style="color: var(--text-secondary); margin-top: 0.5rem;">Enter and update exam grades with full audit history tracking.</p>
             </div>
         </div>
     </main>
