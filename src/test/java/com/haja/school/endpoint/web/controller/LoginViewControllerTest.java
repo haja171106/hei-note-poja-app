@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.security.JwtAuthFilter;
 import com.haja.school.security.JwtProvider;
+import com.haja.school.service.CohortService;
+import com.haja.school.service.GraduateService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -23,6 +25,8 @@ class LoginViewControllerTest {
   @MockBean private JUserRepository userRepository;
   @MockBean private JwtProvider jwtProvider;
   @MockBean private JwtAuthFilter jwtAuthFilter;
+  @MockBean private CohortService cohortService;
+  @MockBean private GraduateService graduateService;
 
   @Test
   void loginPage_unauthenticated_returnsLoginView() throws Exception {

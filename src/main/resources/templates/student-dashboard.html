@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEI - Espace Étudiant</title>
+    <title>HEI - Student Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -104,33 +104,33 @@
 </head>
 <body>
     <header>
-        <div class="brand">HEI &bull; Espace Étudiant</div>
+        <div class="brand">HEI &bull; Student Portal</div>
         <div style="display: flex; align-items: center; gap: 1rem;">
-            <span class="badge-role">ÉTUDIANT</span>
-            <button class="logout-btn" onclick="logout()">Déconnexion</button>
+            <span class="badge-role">STUDENT</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
 
     <main>
         <div class="profile-card">
             <div class="profile-info">
-                <h1>Bonjour, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Étudiant'}">Étudiant</span></h1>
-                <p th:text="${user != null ? user.email : 'hei.prenom@student.com'}">hei.prenom@student.com</p>
+                <h1>Hello, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Student'}">Student</span></h1>
+                <p th:text="${user != null ? user.email : 'hei.name@student.com'}">hei.name@student.com</p>
             </div>
         </div>
 
         <div class="details-grid">
             <div class="detail-box">
-                <div class="detail-label">Référence Étudiant</div>
+                <div class="detail-label">Student Reference</div>
                 <div class="detail-val" th:text="${user != null ? user.ref : 'STD00000'}">STD00000</div>
             </div>
             <div class="detail-box">
-                <div class="detail-label">Parcours</div>
-                <div class="detail-val" th:text="${user != null && user.track != null ? user.track : 'Tronc Commun (EL/TN S4+)'}">Tronc Commun</div>
+                <div class="detail-label">Track</div>
+                <div class="detail-val" th:text="${user != null && user.track != null ? user.track : 'Core Curriculum (EL/TN S4+)'}">Core Curriculum</div>
             </div>
             <div class="detail-box">
-                <div class="detail-label">Statut Cursus</div>
-                <div class="detail-val" th:text="${user != null && user.cursusStatus != null ? user.cursusStatus : 'ACTIF'}">ACTIVE</div>
+                <div class="detail-label">Cursus Status</div>
+                <div class="detail-val" th:text="${user != null && user.cursusStatus != null ? user.cursusStatus : 'ACTIVE'}">ACTIVE</div>
             </div>
         </div>
     </main>

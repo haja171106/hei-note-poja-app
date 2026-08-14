@@ -1,165 +1,320 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEI - Tableau de bord Administration</title>
+    <title>HEI - Admin Promotion & Graduate Exports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4f46e5;
-            --bg: #0f172a;
-            --card-bg: #1e293b;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --accent: #10b981;
-            --border: rgba(255, 255, 255, 0.08);
+            --bg-dark: #090d16;
+            --card-bg: rgba(22, 30, 49, 0.75);
+            --card-border: rgba(99, 102, 241, 0.2);
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent-purple: #8b5cf6;
+            --accent-indigo: #6366f1;
+            --accent-emerald: #10b981;
+            --btn-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --btn-hover: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
 
         body {
-            background-color: var(--bg);
-            color: var(--text-primary);
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            color: var(--text-main);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
 
         header {
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1.2rem 2.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .brand {
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .brand-logo {
+            background: var(--btn-gradient);
+            color: white;
+            font-weight: 800;
+            padding: 0.4rem 0.9rem;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .brand-title {
             font-size: 1.25rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: #ffffff;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
         }
 
         .badge-role {
-            background: rgba(99, 102, 241, 0.2);
-            color: #818cf8;
-            padding: 0.25rem 0.75rem;
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #c4b5fd;
+            padding: 0.35rem 0.85rem;
             border-radius: 20px;
             font-size: 0.75rem;
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: 0.5px;
         }
 
         .logout-btn {
-            background: rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.15);
             color: #fca5a5;
             border: 1px solid rgba(239, 68, 68, 0.3);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
+            padding: 0.5rem 1.2rem;
+            border-radius: 10px;
             cursor: pointer;
             font-size: 0.875rem;
+            font-weight: 600;
             transition: all 0.2s ease;
         }
 
         .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.3);
+            color: #ffffff;
         }
 
         main {
             flex: 1;
-            padding: 2rem;
+            padding: 2.5rem;
             max-width: 1200px;
             margin: 0 auto;
             width: 100%;
         }
 
-        .welcome-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 2rem;
+        .page-header {
             margin-bottom: 2rem;
         }
 
-        .welcome-title { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
-        .welcome-subtitle { color: var(--text-secondary); }
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
-        .grid {
+        .page-subtitle {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+        }
+
+        .table-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 1.75rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .cohorts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.5rem;
         }
 
-        .action-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
+        .cohort-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 16px;
             padding: 1.5rem;
-            transition: transform 0.2s ease, border-color 0.2s ease;
-        }
-
-        .action-card:hover {
-            transform: translateY(-3px);
-            border-color: #6366f1;
-        }
-
-        .card-icon {
-            width: 48px;
-            height: 48px;
-            background: rgba(99, 102, 241, 0.15);
-            border-radius: 12px;
+            transition: all 0.25s ease;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .cohort-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-indigo);
+            box-shadow: 0 12px 25px -5px rgba(99, 102, 241, 0.3);
+        }
+
+        .cohort-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 1rem;
         }
 
-        .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
-        .card-desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem; }
+        .cohort-ref {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .cohort-year {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.2rem 0.6rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .cohort-stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-top: 0.2rem;
+        }
+
+        .btn-export {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.8rem;
+            border-radius: 12px;
+            background: var(--btn-gradient);
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-export:hover {
+            background: var(--btn-hover);
+            transform: scale(1.02);
+            box-shadow: 0 6px 18px rgba(99, 102, 241, 0.5);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-sub);
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
 <body>
     <header>
-        <div class="brand">HEI &bull; Portal Administration</div>
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <span class="badge-role">ADMINISTRATEUR</span>
-            <button class="logout-btn" onclick="logout()">Déconnexion</button>
+        <div class="brand-container">
+            <div class="brand-logo">HEI</div>
+            <div class="brand-title">Admin Management Portal</div>
+        </div>
+        <div class="user-nav">
+            <span class="badge-role">ADMINISTRATOR</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </header>
 
     <main>
-        <div class="welcome-card">
-            <h1 class="welcome-title">Bienvenue, <span th:text="${user != null ? user.firstname + ' ' + user.name : 'Administrateur'}">Admin</span></h1>
-            <p class="welcome-subtitle">Tableau de bord de gestion des promotions, étudiants, enseignants et bulletins.</p>
+        <div class="page-header">
+            <h1 class="page-title">Academic Promotions & Graduate Exports</h1>
+            <p class="page-subtitle">Dynamic cohort list & Excel (.xlsx) download containing Rank, Student Ref (STDXXXXX), Name, Firstname, and Overall Average.</p>
         </div>
 
-        <div class="grid">
-            <div class="action-card">
-                <div class="card-icon">🎓</div>
-                <h2 class="card-title">Promotions & Groupes</h2>
-                <p class="card-desc">Consulter les cohortes, ajouter une promotion et générer les groupes équilibrés.</p>
+        <div class="table-card">
+            <div class="table-header">
+                <div class="section-title">
+                    <span>🎓</span> Promotions List
+                </div>
             </div>
 
-            <div class="action-card">
-                <div class="card-icon">👨‍🎓</div>
-                <h2 class="card-title">Gestion Étudiants</h2>
-                <p class="card-desc">Inscrire de nouveaux étudiants, changement de groupe et affectation de parcours (EL/TN).</p>
+            <div th:if="${cohorts != null and !#lists.isEmpty(cohorts)}" class="cohorts-grid">
+                <div th:each="cohort : ${cohorts}" class="cohort-card">
+                    <div>
+                        <div class="cohort-header">
+                            <div class="cohort-ref" th:text="'Promotion ' + ${cohort.ref}">Promotion A</div>
+                            <span class="cohort-year" th:text="${cohort.entryYear}">2024</span>
+                        </div>
+
+                        <div class="cohort-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Students</span>
+                                <span class="stat-value" th:text="${cohort.studentCount != null ? cohort.studentCount : 0}">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Groups</span>
+                                <span class="stat-value" th:text="${cohort.groupCount != null ? cohort.groupCount : 0}">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <a th:href="@{'/ui/admin/promotions/' + ${cohort.id} + '/graduates/export'}" class="btn-export">
+                        📥 Download Graduates (.xlsx)
+                    </a>
+                </div>
             </div>
 
-            <div class="action-card">
-                <div class="card-icon">👨‍🏫</div>
-                <h2 class="card-title">Gestion Enseignants</h2>
-                <p class="card-desc">Ajouter des enseignants et affecter les cours par année académique.</p>
-            </div>
-
-            <div class="action-card">
-                <div class="card-icon">📊</div>
-                <h2 class="card-title">Export Diplômés & Bulletins</h2>
-                <p class="card-desc">Générer le fichier Excel des diplômés et émettre les bulletins PDF.</p>
+            <div th:if="${cohorts == null or #lists.isEmpty(cohorts)}" class="empty-state">
+                <div class="empty-icon">📂</div>
+                <h3>No Promotions Found</h3>
+                <p>No cohorts have been registered in the database yet.</p>
             </div>
         </div>
     </main>
