@@ -178,4 +178,26 @@ class StudentServiceTest {
 
     assertThrows(ResponseStatusException.class, () -> studentService.createStudent(request));
   }
+
+  @Test
+  void deleteStudent_success() {
+    UUID studentId = UUID.randomUUID();
+    JUser student =
+        JUser.builder().id(studentId).role(Role.STUDENT).cursusStatus(CursusStatus.ACTIVE).build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+
+    studentService.deleteStudent(studentId);
+
+    assertEquals(CursusStatus.DROPPED_OUT, student.getCursusStatus());
+    verify(userRepository).save(student);
+  }
+
+  @Test
+  void deleteStudent_notFound_throwsException() {
+    UUID studentId = UUID.randomUUID();
+    when(userRepository.findById(studentId)).thenReturn(Optional.empty());
+
+    assertThrows(ResponseStatusException.class, () -> studentService.deleteStudent(studentId));
+  }
 }
