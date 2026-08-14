@@ -92,11 +92,7 @@ class StudentServiceTest {
   @Test
   void createStudent_incrementsExistingStudentRef() {
     StudentCreateRequest request =
-        StudentCreateRequest.builder()
-            .name("Smith")
-            .firstname("Jane")
-            .cohortId(cohortId)
-            .build();
+        StudentCreateRequest.builder().name("Smith").firstname("Jane").cohortId(cohortId).build();
 
     JUser existingStudent = JUser.builder().ref("STD00005").role(Role.STUDENT).build();
 
@@ -121,11 +117,7 @@ class StudentServiceTest {
   @Test
   void createStudent_handlesEmailCollision() {
     StudentCreateRequest request =
-        StudentCreateRequest.builder()
-            .name("Dupont")
-            .firstname("Jean")
-            .cohortId(cohortId)
-            .build();
+        StudentCreateRequest.builder().name("Dupont").firstname("Jean").cohortId(cohortId).build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
     when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
@@ -180,15 +172,10 @@ class StudentServiceTest {
   @Test
   void createStudent_cohortNotFound_throwsException() {
     StudentCreateRequest request =
-        StudentCreateRequest.builder()
-            .name("Unknown")
-            .firstname("User")
-            .cohortId(cohortId)
-            .build();
+        StudentCreateRequest.builder().name("Unknown").firstname("User").cohortId(cohortId).build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.empty());
 
-    assertThrows(
-        ResponseStatusException.class, () -> studentService.createStudent(request));
+    assertThrows(ResponseStatusException.class, () -> studentService.createStudent(request));
   }
 }
