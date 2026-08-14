@@ -2,20 +2,29 @@ package com.haja.school.endpoint.web.controller;
 
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JUser;
+import com.haja.school.service.CohortService;
+import com.haja.school.service.GraduateService;
 import java.security.Principal;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @Controller
 @AllArgsConstructor
 public class LoginViewController {
 
   private final JUserRepository userRepository;
+  private final CohortService cohortService;
+  private final GraduateService graduateService;
 
   @GetMapping({"/", "/login", "/ui/login"})
   public String loginPage(Authentication authentication) {
@@ -29,7 +38,22 @@ public class LoginViewController {
   @PreAuthorize("hasRole('ADMIN')")
   public String adminDashboard(Principal principal, Model model) {
     populateUserModel(principal, model);
+    model.addAttribute("cohorts", cohortService.getAllCohorts());
     return "admin-dashboard";
+  }
+
+  @GetMapping({"/ui/admin/promotions/{id}/graduates/export", "/promotions/{id}/graduates/export"})
+  @PreAuthorize("hasRole('ADMIN')")
+  public ResponseEntity<byte[]> exportGraduatesExcel(@PathVariable UUID id) {
+    byte[] excelBytes = graduateService.exportGraduatesExcel(id);
+    return ResponseEntity.ok()
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            "attachment; filename=\"graduates-cohort-" + id + ".xlsx\"")
+        .contentType(
+            MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(excelBytes);
   }
 
   @GetMapping("/ui/teacher")
