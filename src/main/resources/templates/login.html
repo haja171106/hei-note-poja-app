@@ -259,13 +259,11 @@
 
                 const data = await response.json();
                 
-                // Save JWT Token in Cookie and localStorage
                 document.cookie = `jwt_token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('role', data.role);
                 localStorage.setItem('userId', data.userId);
 
-                // Redirect based on user role
                 if (data.role === 'ADMIN') {
                     window.location.href = '/ui/admin';
                 } else if (data.role === 'TEACHER') {

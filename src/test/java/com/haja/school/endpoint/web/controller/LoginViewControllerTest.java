@@ -65,4 +65,19 @@ class LoginViewControllerTest {
         .andExpect(status().isOk())
         .andExpect(view().name("student-dashboard"));
   }
+
+  @Test
+  @WithMockUser(
+      username = "hei.admin@admin.com",
+      roles = {"ADMIN"})
+  void exportAllGraduatesExcel_returnsExcel() throws Exception {
+    org.mockito.Mockito.when(graduateService.exportAllGraduatesExcel())
+        .thenReturn(new byte[] {1, 2, 3});
+
+    mockMvc
+        .perform(get("/ui/admin/graduates/export"))
+        .andExpect(status().isOk())
+        .andExpect(
+            header().string("Content-Disposition", "attachment; filename=\"graduates-all.xlsx\""));
+  }
 }

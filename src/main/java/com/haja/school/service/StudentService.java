@@ -211,6 +211,40 @@ public class StudentService {
         .build();
   }
 
+  public List<Student> getStudentsByCohort(UUID cohortId) {
+    JCohort cohort =
+        cohortRepository
+            .findById(cohortId)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cohort not found"));
+
+    List<JUser> students = userRepository.findByCohortId(cohort.getId());
+    return students.stream()
+        .map(
+            student -> {
+              UUID activeGroupId =
+                  studentGroupHistoryRepository
+                      .findByStudentIdAndEndDateIsNull(student.getId())
+                      .map(history -> history.getGroup().getId())
+                      .orElse(null);
+
+              return Student.builder()
+                  .id(student.getId())
+                  .ref(student.getRef())
+                  .name(student.getName())
+                  .firstname(student.getFirstname())
+                  .email(student.getEmail())
+                  .cohortId(cohort.getId())
+                  .groupId(activeGroupId)
+                  .track(student.getTrack())
+                  .status(student.getCursusStatus())
+                  .build();
+            })
+        .sorted(
+            Comparator.comparing(Student::getRef, Comparator.nullsLast(Comparator.naturalOrder())))
+        .toList();
+  }
+
   private int computeCurrentSemester(int entryYear) {
     int currentYear = LocalDate.now().getYear();
     int currentMonth = LocalDate.now().getMonthValue();

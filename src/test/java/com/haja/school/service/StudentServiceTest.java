@@ -278,4 +278,43 @@ class StudentServiceTest {
     assertThrows(
         ResponseStatusException.class, () -> studentService.assignStudentTrack(studentId, request));
   }
+
+  @Test
+  void getStudentsByCohort_success() {
+    UUID student1Id = UUID.randomUUID();
+    UUID student2Id = UUID.randomUUID();
+
+    JUser student1 =
+        JUser.builder()
+            .id(student1Id)
+            .ref("STD00001")
+            .name("Doe")
+            .firstname("John")
+            .email("hei.john@student.com")
+            .cohort(cohort)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .build();
+    JUser student2 =
+        JUser.builder()
+            .id(student2Id)
+            .ref("STD00002")
+            .name("Smith")
+            .firstname("Jane")
+            .email("hei.jane@student.com")
+            .cohort(cohort)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .build();
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
+    when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student1, student2));
+    when(studentGroupHistoryRepository.findByStudentIdAndEndDateIsNull(any()))
+        .thenReturn(Optional.empty());
+
+    List<Student> students = studentService.getStudentsByCohort(cohortId);
+
+    assertNotNull(students);
+    assertEquals(2, students.size());
+    assertEquals("STD00001", students.get(0).getRef());
+    assertEquals("STD00002", students.get(1).getRef());
+  }
 }
