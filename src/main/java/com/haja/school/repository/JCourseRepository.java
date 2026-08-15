@@ -12,6 +12,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface JCourseRepository extends JpaRepository<JCourse, UUID> {
 
+  boolean existsByRef(String ref);
+
   List<JCourse> findBySemesterNumber(Integer semesterNumber);
 
   List<JCourse> findByTrack(Track track);
