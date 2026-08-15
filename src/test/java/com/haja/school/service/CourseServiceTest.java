@@ -5,13 +5,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.haja.school.endpoint.rest.model.CourseCreateRequest;
+import com.haja.school.endpoint.rest.model.TeacherAssignmentRequest;
 import com.haja.school.model.Course;
 import com.haja.school.model.Role;
+import com.haja.school.model.TeacherCourseAssignment;
 import com.haja.school.model.Track;
 import com.haja.school.repository.JCourseRepository;
+import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCohort;
 import com.haja.school.repository.model.JCourse;
+import com.haja.school.repository.model.JTeacherCourseAssignment;
 import com.haja.school.repository.model.JUser;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +34,7 @@ class CourseServiceTest {
 
   @Mock private JCourseRepository courseRepository;
   @Mock private JUserRepository userRepository;
+  @Mock private JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
 
   @InjectMocks private CourseService courseService;
 
@@ -178,5 +183,93 @@ class CourseServiceTest {
     when(courseRepository.findBySemesterNumber(2)).thenReturn(List.of(s2Course));
 
     assertThrows(ResponseStatusException.class, () -> courseService.createCourse(request));
+  }
+
+  @Test
+  void assignTeacherToCourse_success() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher = JUser.builder().id(teacherId).role(Role.TEACHER).build();
+    TeacherAssignmentRequest request =
+        TeacherAssignmentRequest.builder().teacherId(teacherId).academicYear(2026).build();
+
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+    when(userRepository.findById(teacherId)).thenReturn(Optional.of(teacher));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseIdAndAcademicYear(
+            teacherId, courseId, 2026))
+        .thenReturn(false);
+    when(teacherCourseAssignmentRepository.save(any(JTeacherCourseAssignment.class)))
+        .thenAnswer(
+            invocation -> {
+              JTeacherCourseAssignment a = invocation.getArgument(0);
+              a.setId(UUID.randomUUID());
+              return a;
+            });
+
+    TeacherCourseAssignment assignment = courseService.assignTeacherToCourse(courseId, request);
+
+    assertNotNull(assignment);
+    assertEquals(teacherId, assignment.getTeacherId());
+    assertEquals(courseId, assignment.getCourseId());
+    assertEquals(2026, assignment.getAcademicYear());
+  }
+
+  @Test
+  void assignTeacherToCourse_courseNotFound_throwsException() {
+    UUID teacherId = UUID.randomUUID();
+    TeacherAssignmentRequest request =
+        TeacherAssignmentRequest.builder().teacherId(teacherId).academicYear(2026).build();
+
+    when(courseRepository.findById(courseId)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.assignTeacherToCourse(courseId, request));
+  }
+
+  @Test
+  void assignTeacherToCourse_teacherNotFound_throwsException() {
+    UUID teacherId = UUID.randomUUID();
+    TeacherAssignmentRequest request =
+        TeacherAssignmentRequest.builder().teacherId(teacherId).academicYear(2026).build();
+
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+    when(userRepository.findById(teacherId)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.assignTeacherToCourse(courseId, request));
+  }
+
+  @Test
+  void assignTeacherToCourse_notATeacher_throwsException() {
+    UUID studentId = UUID.randomUUID();
+    JUser student = JUser.builder().id(studentId).role(Role.STUDENT).build();
+    TeacherAssignmentRequest request =
+        TeacherAssignmentRequest.builder().teacherId(studentId).academicYear(2026).build();
+
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.assignTeacherToCourse(courseId, request));
+  }
+
+  @Test
+  void assignTeacherToCourse_alreadyAssigned_throwsException() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher = JUser.builder().id(teacherId).role(Role.TEACHER).build();
+    TeacherAssignmentRequest request =
+        TeacherAssignmentRequest.builder().teacherId(teacherId).academicYear(2026).build();
+
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+    when(userRepository.findById(teacherId)).thenReturn(Optional.of(teacher));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseIdAndAcademicYear(
+            teacherId, courseId, 2026))
+        .thenReturn(true);
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.assignTeacherToCourse(courseId, request));
   }
 }

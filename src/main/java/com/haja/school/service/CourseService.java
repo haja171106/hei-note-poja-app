@@ -1,11 +1,16 @@
 package com.haja.school.service;
 
 import com.haja.school.endpoint.rest.model.CourseCreateRequest;
+import com.haja.school.endpoint.rest.model.TeacherAssignmentRequest;
 import com.haja.school.model.Course;
+import com.haja.school.model.Role;
+import com.haja.school.model.TeacherCourseAssignment;
 import com.haja.school.model.Track;
 import com.haja.school.repository.JCourseRepository;
+import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
+import com.haja.school.repository.model.JTeacherCourseAssignment;
 import com.haja.school.repository.model.JUser;
 import java.time.LocalDate;
 import java.util.List;
@@ -22,6 +27,7 @@ public class CourseService {
 
   private final JCourseRepository courseRepository;
   private final JUserRepository userRepository;
+  private final JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
 
   public List<Course> getCourses(String callerEmail, Integer semester, Track track) {
     JUser caller =
@@ -71,6 +77,44 @@ public class CourseService {
 
     JCourse saved = courseRepository.save(jCourse);
     return toModel(saved);
+  }
+
+  @Transactional
+  public TeacherCourseAssignment assignTeacherToCourse(
+      UUID courseId, TeacherAssignmentRequest request) {
+    JCourse course =
+        courseRepository
+            .findById(courseId)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+
+    JUser teacher =
+        userRepository
+            .findById(request.getTeacherId())
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher not found"));
+
+    if (teacher.getRole() != Role.TEACHER) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is not a teacher");
+    }
+
+    if (teacherCourseAssignmentRepository.existsByTeacherIdAndCourseIdAndAcademicYear(
+        request.getTeacherId(), courseId, request.getAcademicYear())) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Teacher is already assigned to this course for academic year "
+              + request.getAcademicYear());
+    }
+
+    JTeacherCourseAssignment assignment =
+        JTeacherCourseAssignment.builder()
+            .teacher(teacher)
+            .course(course)
+            .academicYear(request.getAcademicYear())
+            .build();
+
+    JTeacherCourseAssignment saved = teacherCourseAssignmentRepository.save(assignment);
+    return toAssignmentModel(saved);
   }
 
   private void validateCreditLimits(int semesterNumber, Track track, int creditToAdd) {
@@ -212,6 +256,15 @@ public class CourseService {
         .credit(jCourse.getCredit())
         .semesterNumber(jCourse.getSemesterNumber())
         .track(jCourse.getTrack())
+        .build();
+  }
+
+  private TeacherCourseAssignment toAssignmentModel(JTeacherCourseAssignment assignment) {
+    return TeacherCourseAssignment.builder()
+        .id(assignment.getId())
+        .teacherId(assignment.getTeacher().getId())
+        .courseId(assignment.getCourse().getId())
+        .academicYear(assignment.getAcademicYear())
         .build();
   }
 }
