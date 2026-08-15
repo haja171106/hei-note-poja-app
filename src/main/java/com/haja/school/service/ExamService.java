@@ -1,5 +1,6 @@
 package com.haja.school.service;
 
+import com.haja.school.endpoint.rest.model.ExamCreateRequest;
 import com.haja.school.model.Exam;
 import com.haja.school.model.Role;
 import com.haja.school.repository.JCourseRepository;
@@ -15,6 +16,7 @@ import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -49,6 +51,68 @@ public class ExamService {
             : examRepository.findByCourseId(courseId);
 
     return exams.stream().map(this::toModel).toList();
+  }
+
+  @Transactional
+  public Exam createExam(UUID courseId, ExamCreateRequest request, String callerEmail) {
+    JUser caller =
+        userRepository
+            .findByEmail(callerEmail)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+    JCourse course =
+        courseRepository
+            .findById(courseId)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+
+    validateWriteAccess(caller, course);
+
+    Double existingSum =
+        examRepository.sumCoefficientByCourseIdAndAcademicYear(courseId, request.getAcademicYear());
+    double newTotal = existingSum + request.getCoefficient();
+
+    if (newTotal > 1.0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Total coefficient for this course and academic year would exceed 1.0 (current: "
+              + existingSum
+              + ")");
+    }
+
+    JExam jExam =
+        JExam.builder()
+            .course(course)
+            .academicYear(request.getAcademicYear())
+            .label(request.getLabel())
+            .dateExam(request.getDateExam())
+            .coefficient(request.getCoefficient())
+            .build();
+
+    return toModel(examRepository.save(jExam));
+  }
+
+  private void validateWriteAccess(JUser caller, JCourse course) {
+    if (caller.getRole() == Role.ADMIN) {
+      return;
+    }
+
+    if (caller.getRole() == Role.TEACHER) {
+      boolean isAssigned =
+          teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(
+              caller.getId(), course.getId());
+      if (!isAssigned) {
+        throw new ResponseStatusException(
+            HttpStatus.FORBIDDEN, "Access denied: teacher is not assigned to this course");
+      }
+      return;
+    }
+
+    throw new ResponseStatusException(
+        HttpStatus.FORBIDDEN, "Access denied: insufficient permissions");
   }
 
   private void validateCourseAccess(JUser caller, JCourse course) {
