@@ -1,18 +1,21 @@
 package com.haja.school.service;
 
 import com.haja.school.model.CourseGradeSummary;
+import com.haja.school.model.GradeHistory;
 import com.haja.school.model.ReportStatus;
 import com.haja.school.model.Role;
 import com.haja.school.model.StudentGrades;
 import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JCourseRepository;
 import com.haja.school.repository.JExamRepository;
+import com.haja.school.repository.JGradeHistoryRepository;
 import com.haja.school.repository.JGradeRepository;
 import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JExam;
 import com.haja.school.repository.model.JGrade;
+import com.haja.school.repository.model.JGradeHistory;
 import com.haja.school.repository.model.JUser;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,6 +38,7 @@ public class GradeCalculationService {
   private final JExamRepository examRepository;
   private final JGradeRepository gradeRepository;
   private final JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
+  private final JGradeHistoryRepository gradeHistoryRepository;
 
   public CourseGradeSummary computeCourseFinalGrade(
       UUID studentId, UUID courseId, int academicYear) {
@@ -149,6 +153,58 @@ public class GradeCalculationService {
         .studentId(student.getId())
         .academicYear(academicYear)
         .courses(courseSummaries)
+        .build();
+  }
+
+  public List<GradeHistory> getStudentGradeHistory(UUID studentId, String callerEmail) {
+    JUser student =
+        userRepository
+            .findById(studentId)
+            .filter(user -> user.getRole() == Role.STUDENT)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+
+    JUser caller =
+        userRepository
+            .findByEmail(callerEmail)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+    validateHistoryAccess(caller, student);
+
+    return gradeHistoryRepository.findByGrade_Student_IdOrderByChangedAtDesc(studentId).stream()
+        .map(this::toGradeHistoryModel)
+        .toList();
+  }
+
+  private void validateHistoryAccess(JUser caller, JUser student) {
+    if (caller.getRole() == Role.ADMIN) {
+      return;
+    }
+
+    if (caller.getRole() == Role.STUDENT) {
+      if (!caller.getId().equals(student.getId())) {
+        throw new ResponseStatusException(
+            HttpStatus.FORBIDDEN, "Access denied: student can only view their own grade history");
+      }
+      return;
+    }
+
+    throw new ResponseStatusException(
+        HttpStatus.FORBIDDEN, "Access denied: insufficient permissions");
+  }
+
+  private GradeHistory toGradeHistoryModel(JGradeHistory history) {
+    return GradeHistory.builder()
+        .id(history.getId())
+        .gradeId(history.getGrade().getId())
+        .oldValue(history.getOldValue())
+        .newValue(history.getNewValue())
+        .changedBy(history.getChangedBy() != null ? history.getChangedBy().getId() : null)
+        .changedAt(history.getChangedAt())
+        .reason(history.getReason())
         .build();
   }
 

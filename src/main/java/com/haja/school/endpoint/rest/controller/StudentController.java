@@ -3,12 +3,14 @@ package com.haja.school.endpoint.rest.controller;
 import com.haja.school.endpoint.rest.model.GroupChangeRequest;
 import com.haja.school.endpoint.rest.model.StudentCreateRequest;
 import com.haja.school.endpoint.rest.model.TrackAssignRequest;
+import com.haja.school.model.GradeHistory;
 import com.haja.school.model.Student;
 import com.haja.school.model.StudentGrades;
 import com.haja.school.model.YearSummary;
 import com.haja.school.service.GradeCalculationService;
 import com.haja.school.service.StudentService;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -68,6 +70,14 @@ public class StudentController {
       Authentication authentication) {
     return ResponseEntity.ok(
         gradeCalculationService.getStudentGrades(id, academicYear, authentication.getName()));
+  }
+
+  @GetMapping("/{id}/grades/history")
+  @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
+  public ResponseEntity<List<GradeHistory>> getStudentGradeHistory(
+      @PathVariable UUID id, Authentication authentication) {
+    return ResponseEntity.ok(
+        gradeCalculationService.getStudentGradeHistory(id, authentication.getName()));
   }
 
   @GetMapping("/{id}/years/{year}/summary")
