@@ -1,5 +1,6 @@
 package com.haja.school.service;
 
+import com.haja.school.endpoint.rest.model.CourseCreateRequest;
 import com.haja.school.model.Course;
 import com.haja.school.model.Track;
 import com.haja.school.repository.JCourseRepository;
@@ -12,6 +13,7 @@ import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -40,6 +42,108 @@ public class CourseService {
         };
 
     return jCourses.stream().map(this::toModel).toList();
+  }
+
+  @Transactional
+  public Course createCourse(CourseCreateRequest request) {
+    validateSemester(request.getSemesterNumber());
+
+    if (request.getCredit() == null || request.getCredit() <= 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Credit must be a positive integer");
+    }
+
+    if (courseRepository.existsByRef(request.getRef())) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Course reference already exists: " + request.getRef());
+    }
+
+    validateCreditLimits(request.getSemesterNumber(), request.getTrack(), request.getCredit());
+
+    JCourse jCourse =
+        JCourse.builder()
+            .ref(request.getRef())
+            .title(request.getTitle())
+            .credit(request.getCredit())
+            .semesterNumber(request.getSemesterNumber())
+            .track(request.getTrack())
+            .build();
+
+    JCourse saved = courseRepository.save(jCourse);
+    return toModel(saved);
+  }
+
+  private void validateCreditLimits(int semesterNumber, Track track, int creditToAdd) {
+    List<JCourse> currentSemesterCourses = courseRepository.findBySemesterNumber(semesterNumber);
+
+    int currentCommon =
+        currentSemesterCourses.stream()
+            .filter(c -> c.getTrack() == null)
+            .mapToInt(JCourse::getCredit)
+            .sum();
+    int currentEl =
+        currentSemesterCourses.stream()
+            .filter(c -> c.getTrack() == Track.EL)
+            .mapToInt(JCourse::getCredit)
+            .sum();
+    int currentTn =
+        currentSemesterCourses.stream()
+            .filter(c -> c.getTrack() == Track.TN)
+            .mapToInt(JCourse::getCredit)
+            .sum();
+
+    int newSemesterElCredits;
+    int newSemesterTnCredits;
+    int newSemesterCommonCredits;
+
+    if (track == null) {
+      newSemesterCommonCredits = currentCommon + creditToAdd;
+      newSemesterElCredits = currentCommon + creditToAdd + currentEl;
+      newSemesterTnCredits = currentCommon + creditToAdd + currentTn;
+    } else if (track == Track.EL) {
+      newSemesterCommonCredits = currentCommon;
+      newSemesterElCredits = currentCommon + currentEl + creditToAdd;
+      newSemesterTnCredits = currentCommon + currentTn;
+    } else {
+      newSemesterCommonCredits = currentCommon;
+      newSemesterElCredits = currentCommon + currentEl;
+      newSemesterTnCredits = currentCommon + currentTn + creditToAdd;
+    }
+
+    if (newSemesterCommonCredits > 30 || newSemesterElCredits > 30 || newSemesterTnCredits > 30) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Total credits for semester " + semesterNumber + " cannot exceed 30");
+    }
+
+    int year = (semesterNumber + 1) / 2;
+    int otherSemester = (semesterNumber % 2 == 1) ? semesterNumber + 1 : semesterNumber - 1;
+    List<JCourse> otherSemesterCourses = courseRepository.findBySemesterNumber(otherSemester);
+
+    int otherCommon =
+        otherSemesterCourses.stream()
+            .filter(c -> c.getTrack() == null)
+            .mapToInt(JCourse::getCredit)
+            .sum();
+    int otherEl =
+        otherSemesterCourses.stream()
+            .filter(c -> c.getTrack() == Track.EL)
+            .mapToInt(JCourse::getCredit)
+            .sum();
+    int otherTn =
+        otherSemesterCourses.stream()
+            .filter(c -> c.getTrack() == Track.TN)
+            .mapToInt(JCourse::getCredit)
+            .sum();
+
+    int totalYearCommon = newSemesterCommonCredits + otherCommon;
+    int totalYearEl = newSemesterElCredits + otherCommon + otherEl;
+    int totalYearTn = newSemesterTnCredits + otherCommon + otherTn;
+
+    if (totalYearCommon > 60 || totalYearEl > 60 || totalYearTn > 60) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Total credits for academic year " + year + " cannot exceed 60");
+    }
   }
 
   private List<JCourse> getCoursesForAdmin(Integer semester, Track track) {
@@ -96,7 +200,7 @@ public class CourseService {
   private void validateSemester(Integer semester) {
     if (semester != null && (semester < 1 || semester > 6)) {
       throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "Le paramètre 'semester' doit être compris entre 1 et 6");
+          HttpStatus.BAD_REQUEST, "The 'semester' parameter must be between 1 and 6");
     }
   }
 
