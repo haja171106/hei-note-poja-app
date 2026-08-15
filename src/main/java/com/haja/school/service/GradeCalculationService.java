@@ -3,6 +3,7 @@ package com.haja.school.service;
 import com.haja.school.model.CourseGradeSummary;
 import com.haja.school.model.ReportStatus;
 import com.haja.school.model.Role;
+import com.haja.school.model.StudentGrades;
 import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JCourseRepository;
 import com.haja.school.repository.JExamRepository;
@@ -14,8 +15,10 @@ import com.haja.school.repository.model.JExam;
 import com.haja.school.repository.model.JGrade;
 import com.haja.school.repository.model.JUser;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -110,6 +113,96 @@ public class GradeCalculationService {
         teacher.getId(), course.getId());
   }
 
+  public StudentGrades getStudentGrades(UUID studentId, Integer academicYear, String callerEmail) {
+    JUser student =
+        userRepository
+            .findById(studentId)
+            .filter(user -> user.getRole() == Role.STUDENT)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+
+    JUser caller =
+        userRepository
+            .findByEmail(callerEmail)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+    validateGradesAccess(caller, student);
+
+    List<JCourse> courses = resolveStudentCourses(student, academicYear);
+
+    if (caller.getRole() == Role.TEACHER) {
+      courses =
+          courses.stream()
+              .filter(course -> isAssignedToCourse(caller, course, academicYear))
+              .toList();
+    }
+
+    List<CourseGradeSummary> courseSummaries =
+        courses.stream()
+            .map(course -> computeCourseGrade(student.getId(), course, academicYear))
+            .toList();
+
+    return StudentGrades.builder()
+        .studentId(student.getId())
+        .academicYear(academicYear)
+        .courses(courseSummaries)
+        .build();
+  }
+
+  private void validateGradesAccess(JUser caller, JUser student) {
+    if (caller.getRole() == Role.ADMIN) {
+      return;
+    }
+
+    if (caller.getRole() == Role.STUDENT) {
+      if (!caller.getId().equals(student.getId())) {
+        throw new ResponseStatusException(
+            HttpStatus.FORBIDDEN, "Access denied: student can only view their own grades");
+      }
+      return;
+    }
+
+    if (caller.getRole() == Role.TEACHER) {
+      return;
+    }
+
+    throw new ResponseStatusException(
+        HttpStatus.FORBIDDEN, "Access denied: insufficient permissions");
+  }
+
+  private List<JCourse> resolveStudentCourses(JUser student, Integer academicYear) {
+    if (academicYear == null) {
+      return findAllStudentCourses(student);
+    }
+
+    Integer entryYear = student.getCohort() != null ? student.getCohort().getEntryYear() : null;
+    if (entryYear == null) {
+      return findAllStudentCourses(student);
+    }
+
+    int studyYear = academicYear - entryYear + 1;
+    if (studyYear < 1 || studyYear > 3) {
+      return List.of();
+    }
+    return findYearCourses(student, studyYear);
+  }
+
+  private List<JCourse> findAllStudentCourses(JUser student) {
+    List<JCourse> courses = new ArrayList<>();
+    Set<UUID> seen = new HashSet<>();
+    for (int year = 1; year <= 3; year++) {
+      for (JCourse course : findYearCourses(student, year)) {
+        if (seen.add(course.getId())) {
+          courses.add(course);
+        }
+      }
+    }
+    return courses;
+  }
+
   private YearSummary buildSummary(
       JUser student, int year, List<JCourse> courses, Integer calendarYear) {
     Map<UUID, Double> gradeByExam = loadGradeByExam(student.getId());
@@ -162,11 +255,12 @@ public class GradeCalculationService {
         .build();
   }
 
-  private CourseGradeSummary computeCourseGrade(UUID studentId, JCourse course, int academicYear) {
+  private CourseGradeSummary computeCourseGrade(
+      UUID studentId, JCourse course, Integer academicYear) {
     Map<UUID, Double> gradeByExam = loadGradeByExam(studentId);
     double courseWeightedSum = 0;
     boolean hasGrade = false;
-    for (JExam exam : examRepository.findByCourseIdAndAcademicYear(course.getId(), academicYear)) {
+    for (JExam exam : findExams(course, academicYear)) {
       Double value = gradeByExam.get(exam.getId());
       if (value != null) {
         courseWeightedSum += value * exam.getCoefficient();

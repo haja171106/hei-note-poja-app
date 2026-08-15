@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.haja.school.model.CourseGradeSummary;
 import com.haja.school.model.ReportStatus;
 import com.haja.school.model.Role;
+import com.haja.school.model.StudentGrades;
 import com.haja.school.model.Track;
 import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JCourseRepository;
@@ -395,6 +396,172 @@ class GradeCalculationServiceTest {
         assertThrows(
             ResponseStatusException.class,
             () -> gradeCalculationService.getYearSummary(studentId, 1, "unknown@unknown.com"));
+
+    assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+  }
+
+  @Test
+  void getStudentGrades_asAdmin_success() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+    when(courseRepository.findBySemesterNumber(1)).thenReturn(List.of(courseA));
+    when(courseRepository.findBySemesterNumber(2)).thenReturn(List.of(courseB));
+    when(examRepository.findByCourseIdAndAcademicYear(courseA.getId(), 2023))
+        .thenReturn(List.of(examA1, examA2));
+    when(examRepository.findByCourseIdAndAcademicYear(courseB.getId(), 2023))
+        .thenReturn(List.of(examB1));
+    when(gradeRepository.findByStudentId(studentId))
+        .thenReturn(List.of(grade(examA1, 12.0), grade(examA2, 18.0), grade(examB1, 15.0)));
+
+    StudentGrades grades =
+        gradeCalculationService.getStudentGrades(studentId, 2023, "hei.admin@admin.com");
+
+    assertNotNull(grades);
+    assertEquals(studentId, grades.getStudentId());
+    assertEquals(2023, grades.getAcademicYear());
+    assertEquals(2, grades.getCourses().size());
+    assertEquals(15.6, grades.getCourses().get(0).getFinalGrade());
+    assertEquals(6, grades.getCourses().get(0).getCredit());
+    assertEquals("ALGO", grades.getCourses().get(0).getCourseRef());
+    assertEquals(15.0, grades.getCourses().get(1).getFinalGrade());
+  }
+
+  @Test
+  void getStudentGrades_asAdmin_withoutAcademicYear_returnsAllCourses() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+    when(courseRepository.findBySemesterNumber(1)).thenReturn(List.of(courseA));
+    when(courseRepository.findBySemesterNumber(2)).thenReturn(List.of(courseB));
+    when(courseRepository.findBySemesterNumber(3)).thenReturn(List.of());
+    when(courseRepository.findBySemesterNumber(4)).thenReturn(List.of());
+    when(courseRepository.findBySemesterNumber(5)).thenReturn(List.of());
+    when(courseRepository.findBySemesterNumber(6)).thenReturn(List.of());
+    when(examRepository.findByCourseId(courseA.getId())).thenReturn(List.of(examA1, examA2));
+    when(examRepository.findByCourseId(courseB.getId())).thenReturn(List.of(examB1));
+    when(gradeRepository.findByStudentId(studentId))
+        .thenReturn(List.of(grade(examA1, 12.0), grade(examA2, 18.0), grade(examB1, 15.0)));
+
+    StudentGrades grades =
+        gradeCalculationService.getStudentGrades(studentId, null, "hei.admin@admin.com");
+
+    assertNotNull(grades);
+    assertEquals(2, grades.getCourses().size());
+    assertNull(grades.getAcademicYear());
+    assertEquals(15.6, grades.getCourses().get(0).getFinalGrade());
+  }
+
+  @Test
+  void getStudentGrades_asStudent_ownGrades_success() {
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.student@student.com")).thenReturn(Optional.of(student));
+    when(courseRepository.findBySemesterNumber(1)).thenReturn(List.of(courseA));
+    when(courseRepository.findBySemesterNumber(2)).thenReturn(List.of(courseB));
+    when(examRepository.findByCourseIdAndAcademicYear(courseA.getId(), 2023))
+        .thenReturn(List.of(examA1, examA2));
+    when(examRepository.findByCourseIdAndAcademicYear(courseB.getId(), 2023))
+        .thenReturn(List.of(examB1));
+    when(gradeRepository.findByStudentId(studentId))
+        .thenReturn(List.of(grade(examA1, 12.0), grade(examA2, 18.0), grade(examB1, 15.0)));
+
+    StudentGrades grades =
+        gradeCalculationService.getStudentGrades(studentId, 2023, "hei.student@student.com");
+
+    assertNotNull(grades);
+    assertEquals(2, grades.getCourses().size());
+    assertEquals(15.6, grades.getCourses().get(0).getFinalGrade());
+  }
+
+  @Test
+  void getStudentGrades_asStudent_otherStudent_throwsForbidden() {
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    JUser otherStudent =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.other@student.com")
+            .role(Role.STUDENT)
+            .build();
+    when(userRepository.findByEmail("hei.other@student.com")).thenReturn(Optional.of(otherStudent));
+
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () ->
+                gradeCalculationService.getStudentGrades(studentId, 2023, "hei.other@student.com"));
+
+    assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+  }
+
+  @Test
+  void getStudentGrades_asTeacher_limitedToAssignedCourses() {
+    JUser teacher =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.teacher@teacher.com")
+            .role(Role.TEACHER)
+            .build();
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.teacher@teacher.com")).thenReturn(Optional.of(teacher));
+    when(courseRepository.findBySemesterNumber(1)).thenReturn(List.of(courseA));
+    when(courseRepository.findBySemesterNumber(2)).thenReturn(List.of(courseB));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseIdAndAcademicYear(
+            teacher.getId(), courseA.getId(), 2023))
+        .thenReturn(true);
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseIdAndAcademicYear(
+            teacher.getId(), courseB.getId(), 2023))
+        .thenReturn(false);
+    when(examRepository.findByCourseIdAndAcademicYear(courseA.getId(), 2023))
+        .thenReturn(List.of(examA1));
+    when(gradeRepository.findByStudentId(studentId)).thenReturn(List.of(grade(examA1, 10.0)));
+
+    StudentGrades grades =
+        gradeCalculationService.getStudentGrades(studentId, 2023, "hei.teacher@teacher.com");
+
+    assertNotNull(grades);
+    assertEquals(1, grades.getCourses().size());
+    assertEquals("ALGO", grades.getCourses().get(0).getCourseRef());
+    assertEquals(4.0, grades.getCourses().get(0).getFinalGrade());
+  }
+
+  @Test
+  void getStudentGrades_academicYearOutOfRange_returnsEmptyCourses() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+
+    StudentGrades grades =
+        gradeCalculationService.getStudentGrades(studentId, 2020, "hei.admin@admin.com");
+
+    assertNotNull(grades);
+    assertEquals(0, grades.getCourses().size());
+    assertEquals(2020, grades.getAcademicYear());
+  }
+
+  @Test
+  void getStudentGrades_studentNotFound_throwsNotFound() {
+    when(userRepository.findById(studentId)).thenReturn(Optional.empty());
+
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> gradeCalculationService.getStudentGrades(studentId, 2023, "hei.admin@admin.com"));
+
+    assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+  }
+
+  @Test
+  void getStudentGrades_unknownCaller_throwsUnauthorized() {
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("unknown@unknown.com")).thenReturn(Optional.empty());
+
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> gradeCalculationService.getStudentGrades(studentId, 2023, "unknown@unknown.com"));
 
     assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
   }
