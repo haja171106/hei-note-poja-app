@@ -3,6 +3,7 @@ package com.haja.school.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.haja.school.endpoint.rest.model.ExamCreateRequest;
 import com.haja.school.model.Exam;
 import com.haja.school.model.Role;
 import com.haja.school.model.Track;
@@ -204,5 +205,121 @@ class ExamServiceTest {
     assertThrows(
         ResponseStatusException.class,
         () -> examService.getExamsByCourse(courseId, null, "unknown@admin.com"));
+  }
+
+  @Test
+  void createExam_asAdmin_success() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+    ExamCreateRequest request =
+        ExamCreateRequest.builder()
+            .label("CC1")
+            .dateExam(Instant.now())
+            .coefficient(0.4)
+            .academicYear(2026)
+            .build();
+
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+    when(examRepository.sumCoefficientByCourseIdAndAcademicYear(courseId, 2026)).thenReturn(0.0);
+    when(examRepository.save(any())).thenReturn(exam);
+
+    Exam result = examService.createExam(courseId, request, "hei.admin@admin.com");
+
+    assertNotNull(result);
+    assertEquals("CC1", result.getLabel());
+  }
+
+  @Test
+  void createExam_coefficientExceeds1_throwsBadRequest() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+    ExamCreateRequest request =
+        ExamCreateRequest.builder()
+            .label("Final")
+            .dateExam(Instant.now())
+            .coefficient(0.5)
+            .academicYear(2026)
+            .build();
+
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+    when(examRepository.sumCoefficientByCourseIdAndAcademicYear(courseId, 2026)).thenReturn(0.7);
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> examService.createExam(courseId, request, "hei.admin@admin.com"));
+  }
+
+  @Test
+  void createExam_asTeacher_assigned_success() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher =
+        JUser.builder().id(teacherId).email("hei.teacher@teacher.com").role(Role.TEACHER).build();
+    ExamCreateRequest request =
+        ExamCreateRequest.builder()
+            .label("CC2")
+            .dateExam(Instant.now())
+            .coefficient(0.3)
+            .academicYear(2026)
+            .build();
+
+    when(userRepository.findByEmail("hei.teacher@teacher.com")).thenReturn(Optional.of(teacher));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(teacherId, courseId))
+        .thenReturn(true);
+    when(examRepository.sumCoefficientByCourseIdAndAcademicYear(courseId, 2026)).thenReturn(0.0);
+    when(examRepository.save(any())).thenReturn(exam);
+
+    Exam result = examService.createExam(courseId, request, "hei.teacher@teacher.com");
+
+    assertNotNull(result);
+  }
+
+  @Test
+  void createExam_asTeacher_notAssigned_throwsForbidden() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher =
+        JUser.builder().id(teacherId).email("hei.teacher@teacher.com").role(Role.TEACHER).build();
+    ExamCreateRequest request =
+        ExamCreateRequest.builder()
+            .label("CC1")
+            .dateExam(Instant.now())
+            .coefficient(0.5)
+            .academicYear(2026)
+            .build();
+
+    when(userRepository.findByEmail("hei.teacher@teacher.com")).thenReturn(Optional.of(teacher));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(teacherId, courseId))
+        .thenReturn(false);
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> examService.createExam(courseId, request, "hei.teacher@teacher.com"));
+  }
+
+  @Test
+  void createExam_asStudent_throwsForbidden() {
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.student@student.com")
+            .role(Role.STUDENT)
+            .build();
+    ExamCreateRequest request =
+        ExamCreateRequest.builder()
+            .label("CC1")
+            .dateExam(Instant.now())
+            .coefficient(0.5)
+            .academicYear(2026)
+            .build();
+
+    when(userRepository.findByEmail("hei.student@student.com")).thenReturn(Optional.of(student));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> examService.createExam(courseId, request, "hei.student@student.com"));
   }
 }
