@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.haja.school.model.CourseGradeSummary;
+import com.haja.school.model.GradeHistory;
 import com.haja.school.model.ReportStatus;
 import com.haja.school.model.Role;
 import com.haja.school.model.StudentGrades;
@@ -11,6 +12,7 @@ import com.haja.school.model.Track;
 import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JCourseRepository;
 import com.haja.school.repository.JExamRepository;
+import com.haja.school.repository.JGradeHistoryRepository;
 import com.haja.school.repository.JGradeRepository;
 import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
@@ -18,6 +20,7 @@ import com.haja.school.repository.model.JCohort;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JExam;
 import com.haja.school.repository.model.JGrade;
+import com.haja.school.repository.model.JGradeHistory;
 import com.haja.school.repository.model.JUser;
 import java.time.Instant;
 import java.util.List;
@@ -40,6 +43,7 @@ class GradeCalculationServiceTest {
   @Mock private JExamRepository examRepository;
   @Mock private JGradeRepository gradeRepository;
   @Mock private JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
+  @Mock private JGradeHistoryRepository gradeHistoryRepository;
 
   @InjectMocks private GradeCalculationService gradeCalculationService;
 
@@ -562,6 +566,139 @@ class GradeCalculationServiceTest {
         assertThrows(
             ResponseStatusException.class,
             () -> gradeCalculationService.getStudentGrades(studentId, 2023, "unknown@unknown.com"));
+
+    assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+  }
+
+  @Test
+  void getStudentGradeHistory_asAdmin_success() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+    JUser grader =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.teacher@teacher.com")
+            .role(Role.TEACHER)
+            .build();
+    JGrade grade = grade(examA1, 12.0);
+    JGradeHistory history =
+        JGradeHistory.builder()
+            .id(UUID.randomUUID())
+            .grade(grade)
+            .oldValue(8.0)
+            .newValue(12.0)
+            .changedBy(grader)
+            .changedAt(Instant.now())
+            .reason("student appeal")
+            .build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+    when(gradeHistoryRepository.findByGrade_Student_IdOrderByChangedAtDesc(studentId))
+        .thenReturn(List.of(history));
+
+    List<GradeHistory> historyList =
+        gradeCalculationService.getStudentGradeHistory(studentId, "hei.admin@admin.com");
+
+    assertNotNull(historyList);
+    assertEquals(1, historyList.size());
+    assertEquals(grade.getId(), historyList.get(0).getGradeId());
+    assertEquals(8.0, historyList.get(0).getOldValue());
+    assertEquals(12.0, historyList.get(0).getNewValue());
+    assertEquals(grader.getId(), historyList.get(0).getChangedBy());
+    assertEquals("student appeal", historyList.get(0).getReason());
+  }
+
+  @Test
+  void getStudentGradeHistory_asStudent_ownHistory_success() {
+    JGrade grade = grade(examA1, 12.0);
+    JGradeHistory history =
+        JGradeHistory.builder()
+            .id(UUID.randomUUID())
+            .grade(grade)
+            .oldValue(null)
+            .newValue(12.0)
+            .changedBy(null)
+            .changedAt(Instant.now())
+            .reason("initial entry")
+            .build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.student@student.com")).thenReturn(Optional.of(student));
+    when(gradeHistoryRepository.findByGrade_Student_IdOrderByChangedAtDesc(studentId))
+        .thenReturn(List.of(history));
+
+    List<GradeHistory> historyList =
+        gradeCalculationService.getStudentGradeHistory(studentId, "hei.student@student.com");
+
+    assertNotNull(historyList);
+    assertEquals(1, historyList.size());
+    assertNull(historyList.get(0).getOldValue());
+    assertNull(historyList.get(0).getChangedBy());
+  }
+
+  @Test
+  void getStudentGradeHistory_asStudent_otherStudent_throwsForbidden() {
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    JUser otherStudent =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.other@student.com")
+            .role(Role.STUDENT)
+            .build();
+    when(userRepository.findByEmail("hei.other@student.com")).thenReturn(Optional.of(otherStudent));
+
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () ->
+                gradeCalculationService.getStudentGradeHistory(studentId, "hei.other@student.com"));
+
+    assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+  }
+
+  @Test
+  void getStudentGradeHistory_asTeacher_throwsForbidden() {
+    JUser teacher =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.teacher@teacher.com")
+            .role(Role.TEACHER)
+            .build();
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("hei.teacher@teacher.com")).thenReturn(Optional.of(teacher));
+
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () ->
+                gradeCalculationService.getStudentGradeHistory(
+                    studentId, "hei.teacher@teacher.com"));
+
+    assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+  }
+
+  @Test
+  void getStudentGradeHistory_studentNotFound_throwsNotFound() {
+    when(userRepository.findById(studentId)).thenReturn(Optional.empty());
+
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> gradeCalculationService.getStudentGradeHistory(studentId, "hei.admin@admin.com"));
+
+    assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+  }
+
+  @Test
+  void getStudentGradeHistory_unknownCaller_throwsUnauthorized() {
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(userRepository.findByEmail("unknown@unknown.com")).thenReturn(Optional.empty());
+
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> gradeCalculationService.getStudentGradeHistory(studentId, "unknown@unknown.com"));
 
     assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
   }
