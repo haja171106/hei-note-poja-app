@@ -2,11 +2,10 @@ package com.haja.school.service;
 
 import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Graduate;
+import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JCohortRepository;
-import com.haja.school.repository.JGradeRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCohort;
-import com.haja.school.repository.model.JGrade;
 import com.haja.school.repository.model.JUser;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,7 +33,7 @@ public class GraduateService {
 
   private final JCohortRepository cohortRepository;
   private final JUserRepository userRepository;
-  private final JGradeRepository gradeRepository;
+  private final GradeCalculationService gradeCalculationService;
 
   public List<Graduate> getGraduatesByCohort(UUID cohortId) {
     JCohort cohort =
@@ -45,93 +44,20 @@ public class GraduateService {
 
     boolean cohortCompleted3Years = hasCompletedThreeYears(cohort.getEntryYear());
     List<JUser> students = userRepository.findByCohortId(cohort.getId());
-    List<Graduate> list = new ArrayList<>();
 
-    for (JUser student : students) {
-      if (student.getCursusStatus() == CursusStatus.DROPPED_OUT) {
-        continue;
-      }
-
-      boolean isGraduatedStatus = student.getCursusStatus() == CursusStatus.GRADUATED;
-      if (!cohortCompleted3Years && !isGraduatedStatus) {
-        continue;
-      }
-
-      List<JGrade> grades = gradeRepository.findByStudentId(student.getId());
-      if (grades.isEmpty()) {
-        continue;
-      }
-
-      double sum = grades.stream().mapToDouble(JGrade::getValue).sum();
-      double average = Math.round((sum / grades.size()) * 100.0) / 100.0;
-
-      if (average > 10.0) {
-        list.add(
-            Graduate.builder()
-                .studentRef(student.getRef())
-                .name(student.getName())
-                .firstname(student.getFirstname())
-                .overallAverage(average)
-                .build());
-      }
-    }
-
-    list.sort(Comparator.comparingDouble(Graduate::getOverallAverage).reversed());
-
-    int rank = 1;
-    for (Graduate g : list) {
-      g.setRank(rank++);
-    }
-
-    return list;
+    return rankGraduates(collectGraduates(students, cohortCompleted3Years));
   }
 
   public List<Graduate> getAllGraduates() {
-    List<JCohort> allCohorts = cohortRepository.findAll();
-    List<Graduate> list = new ArrayList<>();
+    List<Graduate> graduates = new ArrayList<>();
 
-    for (JCohort cohort : allCohorts) {
+    for (JCohort cohort : cohortRepository.findAll()) {
       boolean cohortCompleted3Years = hasCompletedThreeYears(cohort.getEntryYear());
       List<JUser> students = userRepository.findByCohortId(cohort.getId());
-
-      for (JUser student : students) {
-        if (student.getCursusStatus() == CursusStatus.DROPPED_OUT) {
-          continue;
-        }
-
-        boolean isGraduatedStatus = student.getCursusStatus() == CursusStatus.GRADUATED;
-        if (!cohortCompleted3Years && !isGraduatedStatus) {
-          continue;
-        }
-
-        List<JGrade> grades = gradeRepository.findByStudentId(student.getId());
-        if (grades.isEmpty()) {
-          continue;
-        }
-
-        double sum = grades.stream().mapToDouble(JGrade::getValue).sum();
-        double average = Math.round((sum / grades.size()) * 100.0) / 100.0;
-
-        if (average > 10.0) {
-          list.add(
-              Graduate.builder()
-                  .studentRef(student.getRef())
-                  .name(student.getName())
-                  .firstname(student.getFirstname())
-                  .overallAverage(average)
-                  .build());
-        }
-      }
+      graduates.addAll(collectGraduates(students, cohortCompleted3Years));
     }
 
-    list.sort(Comparator.comparingDouble(Graduate::getOverallAverage).reversed());
-
-    int rank = 1;
-    for (Graduate g : list) {
-      g.setRank(rank++);
-    }
-
-    return list;
+    return rankGraduates(graduates);
   }
 
   public byte[] exportGraduatesExcel(UUID cohortId) {
@@ -148,6 +74,64 @@ public class GraduateService {
   public byte[] exportAllGraduatesExcel() {
     List<Graduate> graduates = getAllGraduates();
     return buildExcel(graduates, "All Graduates");
+  }
+
+  private List<Graduate> collectGraduates(List<JUser> students, boolean cohortCompleted3Years) {
+    List<Graduate> graduates = new ArrayList<>();
+
+    for (JUser student : students) {
+      if (student.getCursusStatus() == CursusStatus.DROPPED_OUT) {
+        continue;
+      }
+
+      boolean isGraduatedStatus = student.getCursusStatus() == CursusStatus.GRADUATED;
+      if (!cohortCompleted3Years && !isGraduatedStatus) {
+        continue;
+      }
+
+      Double average = computeGraduationAverage(student);
+      if (average != null && average > 10.0) {
+        graduates.add(
+            Graduate.builder()
+                .studentRef(student.getRef())
+                .name(student.getName())
+                .firstname(student.getFirstname())
+                .overallAverage(average)
+                .build());
+      }
+    }
+
+    return graduates;
+  }
+
+  private Double computeGraduationAverage(JUser student) {
+    if (student.getCohort() == null || student.getCohort().getEntryYear() == null) {
+      return null;
+    }
+
+    double weightedSum = 0;
+    int totalCredits = 0;
+    for (int year = 1; year <= 3; year++) {
+      YearSummary summary = gradeCalculationService.computeYearSummary(student.getId(), year);
+      if (summary.getOverallAverage() == null) {
+        return null;
+      }
+      weightedSum += summary.getOverallAverage() * summary.getTotalCredits();
+      totalCredits += summary.getTotalCredits();
+    }
+
+    return totalCredits > 0 ? round2(weightedSum / totalCredits) : null;
+  }
+
+  private List<Graduate> rankGraduates(List<Graduate> graduates) {
+    graduates.sort(Comparator.comparingDouble(Graduate::getOverallAverage).reversed());
+
+    int rank = 1;
+    for (Graduate g : graduates) {
+      g.setRank(rank++);
+    }
+
+    return graduates;
   }
 
   private byte[] buildExcel(List<Graduate> graduates, String sheetTitle) {
@@ -200,5 +184,9 @@ public class GraduateService {
     }
     int currentYear = LocalDate.now().getYear();
     return (currentYear - entryYear) >= 3;
+  }
+
+  private double round2(double value) {
+    return Math.round(value * 100.0) / 100.0;
   }
 }

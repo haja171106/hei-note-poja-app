@@ -5,11 +5,10 @@ import static org.mockito.Mockito.*;
 
 import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Graduate;
+import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JCohortRepository;
-import com.haja.school.repository.JGradeRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCohort;
-import com.haja.school.repository.model.JGrade;
 import com.haja.school.repository.model.JUser;
 import java.util.List;
 import java.util.Optional;
@@ -26,7 +25,7 @@ class GraduateServiceTest {
 
   @Mock private JCohortRepository cohortRepository;
   @Mock private JUserRepository userRepository;
-  @Mock private JGradeRepository gradeRepository;
+  @Mock private GradeCalculationService gradeCalculationService;
 
   @InjectMocks private GraduateService graduateService;
 
@@ -46,49 +45,20 @@ class GraduateServiceTest {
     UUID studentLowGradeId = UUID.randomUUID();
     UUID studentDroppedId = UUID.randomUUID();
 
-    JUser student1 =
-        JUser.builder()
-            .id(student1Id)
-            .ref("STD00001")
-            .name("Doe")
-            .firstname("John")
-            .cursusStatus(CursusStatus.ACTIVE)
-            .build();
-    JUser student2 =
-        JUser.builder()
-            .id(student2Id)
-            .ref("STD00002")
-            .name("Smith")
-            .firstname("Jane")
-            .cursusStatus(CursusStatus.ACTIVE)
-            .build();
+    JUser student1 = student(student1Id, "STD00001", "Doe", "John", CursusStatus.ACTIVE);
+    JUser student2 = student(student2Id, "STD00002", "Smith", "Jane", CursusStatus.ACTIVE);
     JUser studentLowGrade =
-        JUser.builder()
-            .id(studentLowGradeId)
-            .ref("STD00003")
-            .name("Low")
-            .firstname("Bob")
-            .cursusStatus(CursusStatus.ACTIVE)
-            .build();
+        student(studentLowGradeId, "STD00003", "Low", "Bob", CursusStatus.ACTIVE);
     JUser studentDropped =
-        JUser.builder()
-            .id(studentDroppedId)
-            .ref("STD00004")
-            .name("Dropped")
-            .firstname("Alice")
-            .cursusStatus(CursusStatus.DROPPED_OUT)
-            .build();
-
-    JGrade grade1 = JGrade.builder().id(UUID.randomUUID()).value(15.0).build();
-    JGrade grade2 = JGrade.builder().id(UUID.randomUUID()).value(18.0).build();
-    JGrade gradeLow = JGrade.builder().id(UUID.randomUUID()).value(9.5).build();
+        student(studentDroppedId, "STD00004", "Dropped", "Alice", CursusStatus.DROPPED_OUT);
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
     when(userRepository.findByCohortId(cohortId))
         .thenReturn(List.of(student1, student2, studentLowGrade, studentDropped));
-    when(gradeRepository.findByStudentId(student1Id)).thenReturn(List.of(grade1));
-    when(gradeRepository.findByStudentId(student2Id)).thenReturn(List.of(grade2));
-    when(gradeRepository.findByStudentId(studentLowGradeId)).thenReturn(List.of(gradeLow));
+
+    stubYearAverages(student1Id, 10.5, 12.0, 12.0);
+    stubYearAverages(student2Id, 16.0, 16.0, 16.0);
+    stubYearAverages(studentLowGradeId, 9.0, 9.0, 9.0);
 
     List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
 
@@ -97,51 +67,75 @@ class GraduateServiceTest {
 
     assertEquals("STD00002", graduates.get(0).getStudentRef());
     assertEquals(1, graduates.get(0).getRank());
-    assertEquals(18.0, graduates.get(0).getOverallAverage());
+    assertEquals(16.0, graduates.get(0).getOverallAverage());
 
     assertEquals("STD00001", graduates.get(1).getStudentRef());
     assertEquals(2, graduates.get(1).getRank());
-    assertEquals(15.0, graduates.get(1).getOverallAverage());
+    assertEquals(11.5, graduates.get(1).getOverallAverage());
+  }
+
+  @Test
+  void getGraduatesByCohort_weightedAverage_differsFromFlatAverage() {
+    UUID studentId = UUID.randomUUID();
+    JUser student = student(studentId, "STD00001", "Doe", "John", CursusStatus.ACTIVE);
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
+    when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
+
+    YearSummary year1 = YearSummary.builder().year(1).overallAverage(10.4).totalCredits(10).build();
+    YearSummary year2 = YearSummary.builder().year(2).overallAverage(12.0).totalCredits(60).build();
+    YearSummary year3 = YearSummary.builder().year(3).overallAverage(12.0).totalCredits(60).build();
+    when(gradeCalculationService.computeYearSummary(studentId, 1)).thenReturn(year1);
+    when(gradeCalculationService.computeYearSummary(studentId, 2)).thenReturn(year2);
+    when(gradeCalculationService.computeYearSummary(studentId, 3)).thenReturn(year3);
+
+    List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
+
+    assertNotNull(graduates);
+    assertEquals(1, graduates.size());
+
+    double weightedAverage = (10.4 * 10 + 12.0 * 60 + 12.0 * 60) / (10 + 60 + 60);
+    double roundedWeightedAverage = Math.round(weightedAverage * 100.0) / 100.0;
+    double flatAverage = (16.0 + 8.0 + 8.0) / 3;
+
+    assertEquals(11.88, graduates.get(0).getOverallAverage(), 0.001);
+    assertEquals(roundedWeightedAverage, graduates.get(0).getOverallAverage(), 0.001);
+    assertNotEquals(flatAverage, graduates.get(0).getOverallAverage(), 0.001);
   }
 
   @Test
   void getGraduatesByCohort_cohortNotCompleted3Years_returnsEmptyUnlessGraduated() {
     JCohort recentCohort = JCohort.builder().id(cohortId).ref("B").entryYear(2025).build();
-    UUID studentId = UUID.randomUUID();
-    JUser student =
-        JUser.builder()
-            .id(studentId)
-            .ref("STD00001")
-            .name("Active")
-            .firstname("Student")
-            .cursusStatus(CursusStatus.ACTIVE)
-            .build();
+    UUID activeStudentId = UUID.randomUUID();
+    UUID graduatedStudentId = UUID.randomUUID();
+
+    JUser activeStudent =
+        student(activeStudentId, "STD00001", "Active", "Student", CursusStatus.ACTIVE);
+    JUser graduatedStudent =
+        student(graduatedStudentId, "STD00002", "Graduated", "Student", CursusStatus.GRADUATED);
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(recentCohort));
-    when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
+    when(userRepository.findByCohortId(cohortId))
+        .thenReturn(List.of(activeStudent, graduatedStudent));
+
+    stubYearAverages(graduatedStudentId, 16.0, 16.0, 16.0);
 
     List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
 
     assertNotNull(graduates);
-    assertTrue(graduates.isEmpty());
+    assertEquals(1, graduates.size());
+    assertEquals("STD00002", graduates.get(0).getStudentRef());
   }
 
   @Test
   void exportGraduatesExcel_success() {
     UUID studentId = UUID.randomUUID();
-    JUser student =
-        JUser.builder()
-            .id(studentId)
-            .ref("STD00001")
-            .name("Doe")
-            .firstname("John")
-            .cursusStatus(CursusStatus.ACTIVE)
-            .build();
-    JGrade grade = JGrade.builder().id(UUID.randomUUID()).value(16.0).build();
+    JUser student = student(studentId, "STD00001", "Doe", "John", CursusStatus.ACTIVE);
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
     when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
-    when(gradeRepository.findByStudentId(studentId)).thenReturn(List.of(grade));
+
+    stubYearAverages(studentId, 16.0, 16.0, 16.0);
 
     byte[] excelBytes = graduateService.exportGraduatesExcel(cohortId);
 
@@ -152,23 +146,74 @@ class GraduateServiceTest {
   @Test
   void exportAllGraduatesExcel_success() {
     UUID studentId = UUID.randomUUID();
-    JUser student =
-        JUser.builder()
-            .id(studentId)
-            .ref("STD00001")
-            .name("Doe")
-            .firstname("John")
-            .cursusStatus(CursusStatus.ACTIVE)
-            .build();
-    JGrade grade = JGrade.builder().id(UUID.randomUUID()).value(16.0).build();
+    JUser student = student(studentId, "STD00001", "Doe", "John", CursusStatus.ACTIVE);
 
     when(cohortRepository.findAll()).thenReturn(List.of(cohort));
     when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
-    when(gradeRepository.findByStudentId(studentId)).thenReturn(List.of(grade));
+
+    stubYearAverages(studentId, 16.0, 16.0, 16.0);
 
     byte[] excelBytes = graduateService.exportAllGraduatesExcel();
 
     assertNotNull(excelBytes);
     assertTrue(excelBytes.length > 0);
+  }
+
+  @Test
+  void getGraduatesByCohort_studentWithoutCohort_excluded() {
+    UUID studentId = UUID.randomUUID();
+    JUser studentWithoutCohort =
+        JUser.builder()
+            .id(studentId)
+            .ref("STD00001")
+            .name("No")
+            .firstname("Cohort")
+            .cursusStatus(CursusStatus.ACTIVE)
+            .cohort(null)
+            .build();
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
+    when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(studentWithoutCohort));
+
+    List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
+
+    assertNotNull(graduates);
+    assertTrue(graduates.isEmpty());
+  }
+
+  @Test
+  void getGraduatesByCohort_cohortWithNullEntryYear_returnsEmpty() {
+    JCohort nullEntryCohort = JCohort.builder().id(cohortId).ref("C").entryYear(null).build();
+    UUID studentId = UUID.randomUUID();
+    JUser student = student(studentId, "STD00001", "Doe", "John", CursusStatus.ACTIVE);
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(nullEntryCohort));
+    when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
+
+    List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
+
+    assertNotNull(graduates);
+    assertTrue(graduates.isEmpty());
+  }
+
+  private JUser student(
+      UUID id, String ref, String name, String firstname, CursusStatus cursusStatus) {
+    return JUser.builder()
+        .id(id)
+        .ref(ref)
+        .name(name)
+        .firstname(firstname)
+        .cursusStatus(cursusStatus)
+        .cohort(cohort)
+        .build();
+  }
+
+  private void stubYearAverages(UUID studentId, double avg1, double avg2, double avg3) {
+    when(gradeCalculationService.computeYearSummary(studentId, 1))
+        .thenReturn(YearSummary.builder().year(1).overallAverage(avg1).totalCredits(60).build());
+    when(gradeCalculationService.computeYearSummary(studentId, 2))
+        .thenReturn(YearSummary.builder().year(2).overallAverage(avg2).totalCredits(60).build());
+    when(gradeCalculationService.computeYearSummary(studentId, 3))
+        .thenReturn(YearSummary.builder().year(3).overallAverage(avg3).totalCredits(60).build());
   }
 }
