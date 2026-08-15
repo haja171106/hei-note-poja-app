@@ -1,18 +1,22 @@
 package com.haja.school.service;
 
 import com.haja.school.endpoint.rest.model.ExamCreateRequest;
+import com.haja.school.endpoint.rest.model.GradeUpsertRequest;
 import com.haja.school.model.Exam;
 import com.haja.school.model.Grade;
 import com.haja.school.model.Role;
 import com.haja.school.repository.JCourseRepository;
 import com.haja.school.repository.JExamRepository;
+import com.haja.school.repository.JGradeHistoryRepository;
 import com.haja.school.repository.JGradeRepository;
 import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JExam;
 import com.haja.school.repository.model.JGrade;
+import com.haja.school.repository.model.JGradeHistory;
 import com.haja.school.repository.model.JUser;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +35,7 @@ public class ExamService {
   private final JUserRepository userRepository;
   private final JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
   private final JGradeRepository gradeRepository;
+  private final JGradeHistoryRepository gradeHistoryRepository;
 
   public List<Exam> getExamsByCourse(UUID courseId, Integer academicYear, String callerEmail) {
     JUser caller =
@@ -74,6 +79,75 @@ public class ExamService {
     validateGradeAccess(caller, exam);
 
     return gradeRepository.findByExamId(examId).stream().map(this::toGradeModel).toList();
+  }
+
+  @Transactional
+  public Grade upsertGrade(
+      UUID examId, UUID studentId, GradeUpsertRequest request, String callerEmail) {
+    JUser caller =
+        userRepository
+            .findByEmail(callerEmail)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+    JExam exam =
+        examRepository
+            .findById(examId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam not found"));
+
+    validateGradeAccess(caller, exam);
+
+    JUser student =
+        userRepository
+            .findById(studentId)
+            .filter(user -> user.getRole() == Role.STUDENT)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+
+    validateGradeUpsertRequest(request);
+
+    Instant now = Instant.now();
+    JGrade grade = gradeRepository.findByExamIdAndStudentId(examId, studentId).orElse(null);
+    Double oldValue = grade != null ? grade.getValue() : null;
+
+    if (grade == null) {
+      grade =
+          JGrade.builder()
+              .exam(exam)
+              .student(student)
+              .value(request.getValue())
+              .enteredBy(caller)
+              .enteredAt(now)
+              .build();
+    } else {
+      grade.setValue(request.getValue());
+    }
+
+    JGrade savedGrade = gradeRepository.save(grade);
+
+    gradeHistoryRepository.save(
+        JGradeHistory.builder()
+            .grade(savedGrade)
+            .oldValue(oldValue)
+            .newValue(savedGrade.getValue())
+            .changedBy(caller)
+            .changedAt(now)
+            .reason(request.getReason())
+            .build());
+
+    return toGradeModel(savedGrade);
+  }
+
+  private void validateGradeUpsertRequest(GradeUpsertRequest request) {
+    if (request.getValue() == null || request.getValue() < 0 || request.getValue() > 20) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Grade value must be between 0 and 20");
+    }
+    if (request.getReason() == null || request.getReason().isBlank()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reason is required");
+    }
   }
 
   private void validateGradeAccess(JUser caller, JExam exam) {
