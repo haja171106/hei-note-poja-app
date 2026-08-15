@@ -5,15 +5,18 @@ import static org.mockito.Mockito.*;
 
 import com.haja.school.endpoint.rest.model.ExamCreateRequest;
 import com.haja.school.model.Exam;
+import com.haja.school.model.Grade;
 import com.haja.school.model.Role;
 import com.haja.school.model.Track;
 import com.haja.school.repository.JCourseRepository;
 import com.haja.school.repository.JExamRepository;
+import com.haja.school.repository.JGradeRepository;
 import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCohort;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JExam;
+import com.haja.school.repository.model.JGrade;
 import com.haja.school.repository.model.JUser;
 import java.time.Instant;
 import java.util.List;
@@ -34,6 +37,7 @@ class ExamServiceTest {
   @Mock private JCourseRepository courseRepository;
   @Mock private JUserRepository userRepository;
   @Mock private JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
+  @Mock private JGradeRepository gradeRepository;
 
   @InjectMocks private ExamService examService;
 
@@ -205,6 +209,129 @@ class ExamServiceTest {
     assertThrows(
         ResponseStatusException.class,
         () -> examService.getExamsByCourse(courseId, null, "unknown@admin.com"));
+  }
+
+  @Test
+  void getGradesByExam_asAdmin_success() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.student@student.com")
+            .role(Role.STUDENT)
+            .build();
+    JGrade grade =
+        JGrade.builder()
+            .id(UUID.randomUUID())
+            .exam(exam)
+            .student(student)
+            .value(14.5)
+            .enteredBy(admin)
+            .enteredAt(Instant.now())
+            .build();
+
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+    when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+    when(gradeRepository.findByExamId(examId)).thenReturn(List.of(grade));
+
+    List<Grade> grades = examService.getGradesByExam(examId, "hei.admin@admin.com");
+
+    assertNotNull(grades);
+    assertEquals(1, grades.size());
+    assertEquals(14.5, grades.get(0).getValue());
+    assertEquals(examId, grades.get(0).getExamId());
+    assertEquals(student.getId(), grades.get(0).getStudentId());
+    assertEquals(admin.getId(), grades.get(0).getEnteredBy());
+  }
+
+  @Test
+  void getGradesByExam_asTeacher_assigned_success() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher =
+        JUser.builder().id(teacherId).email("hei.teacher@teacher.com").role(Role.TEACHER).build();
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.student@student.com")
+            .role(Role.STUDENT)
+            .build();
+    JGrade grade =
+        JGrade.builder()
+            .id(UUID.randomUUID())
+            .exam(exam)
+            .student(student)
+            .value(12.0)
+            .enteredAt(Instant.now())
+            .build();
+
+    when(userRepository.findByEmail("hei.teacher@teacher.com")).thenReturn(Optional.of(teacher));
+    when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(teacherId, courseId))
+        .thenReturn(true);
+    when(gradeRepository.findByExamId(examId)).thenReturn(List.of(grade));
+
+    List<Grade> grades = examService.getGradesByExam(examId, "hei.teacher@teacher.com");
+
+    assertNotNull(grades);
+    assertEquals(1, grades.size());
+    assertEquals(12.0, grades.get(0).getValue());
+    assertNull(grades.get(0).getEnteredBy());
+  }
+
+  @Test
+  void getGradesByExam_asTeacher_notAssigned_throwsForbidden() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher =
+        JUser.builder().id(teacherId).email("hei.teacher@teacher.com").role(Role.TEACHER).build();
+
+    when(userRepository.findByEmail("hei.teacher@teacher.com")).thenReturn(Optional.of(teacher));
+    when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(teacherId, courseId))
+        .thenReturn(false);
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> examService.getGradesByExam(examId, "hei.teacher@teacher.com"));
+  }
+
+  @Test
+  void getGradesByExam_asStudent_throwsForbidden() {
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.student@student.com")
+            .role(Role.STUDENT)
+            .build();
+
+    when(userRepository.findByEmail("hei.student@student.com")).thenReturn(Optional.of(student));
+    when(examRepository.findById(examId)).thenReturn(Optional.of(exam));
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> examService.getGradesByExam(examId, "hei.student@student.com"));
+  }
+
+  @Test
+  void getGradesByExam_examNotFound_throwsNotFound() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("hei.admin@admin.com").role(Role.ADMIN).build();
+
+    when(userRepository.findByEmail("hei.admin@admin.com")).thenReturn(Optional.of(admin));
+    when(examRepository.findById(examId)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> examService.getGradesByExam(examId, "hei.admin@admin.com"));
+  }
+
+  @Test
+  void getGradesByExam_userNotFound_throwsUnauthorized() {
+    when(userRepository.findByEmail("unknown@admin.com")).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> examService.getGradesByExam(examId, "unknown@admin.com"));
   }
 
   @Test
