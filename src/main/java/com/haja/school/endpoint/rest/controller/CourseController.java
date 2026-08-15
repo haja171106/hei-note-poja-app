@@ -5,6 +5,7 @@ import com.haja.school.endpoint.rest.model.ExamCreateRequest;
 import com.haja.school.endpoint.rest.model.TeacherAssignmentRequest;
 import com.haja.school.model.Course;
 import com.haja.school.model.Exam;
+import com.haja.school.model.Student;
 import com.haja.school.model.TeacherCourseAssignment;
 import com.haja.school.model.Track;
 import com.haja.school.service.CourseService;
@@ -46,6 +47,13 @@ public class CourseController {
   @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<Course> createCourse(@Valid @RequestBody CourseCreateRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED).body(courseService.createCourse(request));
+  }
+
+  @GetMapping("/{id}/students")
+  @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+  public ResponseEntity<List<Student>> getCourseStudents(
+      @PathVariable UUID id, Authentication authentication) {
+    return ResponseEntity.ok(courseService.getStudentsByCourse(id, authentication.getName()));
   }
 
   @PostMapping("/{id}/teachers")

@@ -4,15 +4,18 @@ import com.haja.school.endpoint.rest.model.CourseCreateRequest;
 import com.haja.school.endpoint.rest.model.TeacherAssignmentRequest;
 import com.haja.school.model.Course;
 import com.haja.school.model.Role;
+import com.haja.school.model.Student;
 import com.haja.school.model.TeacherCourseAssignment;
 import com.haja.school.model.Track;
 import com.haja.school.repository.JCourseRepository;
+import com.haja.school.repository.JStudentGroupHistoryRepository;
 import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JTeacherCourseAssignment;
 import com.haja.school.repository.model.JUser;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -28,6 +31,7 @@ public class CourseService {
   private final JCourseRepository courseRepository;
   private final JUserRepository userRepository;
   private final JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
+  private final JStudentGroupHistoryRepository studentGroupHistoryRepository;
 
   public List<Course> getCourses(String callerEmail, Integer semester, Track track) {
     JUser caller =
@@ -48,6 +52,92 @@ public class CourseService {
         };
 
     return jCourses.stream().map(this::toModel).toList();
+  }
+
+  public List<Student> getStudentsByCourse(UUID courseId, String callerEmail) {
+    JUser caller =
+        userRepository
+            .findByEmail(callerEmail)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+    JCourse course =
+        courseRepository
+            .findById(courseId)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+
+    validateCourseAccess(caller, course);
+
+    int courseStudyYear = (course.getSemesterNumber() + 1) / 2;
+
+    return userRepository.findByRole(Role.STUDENT).stream()
+        .filter(student -> currentStudyYear(student) == courseStudyYear)
+        .filter(student -> isCourseExpectedForStudent(course, student))
+        .map(this::toStudentModel)
+        .sorted(
+            Comparator.comparing(Student::getRef, Comparator.nullsLast(Comparator.naturalOrder())))
+        .toList();
+  }
+
+  private void validateCourseAccess(JUser caller, JCourse course) {
+    if (caller.getRole() == Role.ADMIN) {
+      return;
+    }
+
+    if (caller.getRole() == Role.TEACHER) {
+      boolean isAssigned =
+          teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(
+              caller.getId(), course.getId());
+      if (!isAssigned) {
+        throw new ResponseStatusException(
+            HttpStatus.FORBIDDEN, "Access denied: teacher is not assigned to this course");
+      }
+      return;
+    }
+
+    throw new ResponseStatusException(
+        HttpStatus.FORBIDDEN, "Access denied: insufficient permissions");
+  }
+
+  private int currentStudyYear(JUser student) {
+    if (student.getCohort() == null || student.getCohort().getEntryYear() == null) {
+      return -1;
+    }
+    Integer semester = resolveStudentSemester(student);
+    if (semester == null) {
+      return -1;
+    }
+    return (semester + 1) / 2;
+  }
+
+  private boolean isCourseExpectedForStudent(JCourse course, JUser student) {
+    if (course.getSemesterNumber() < 4) {
+      return true;
+    }
+    return course.getTrack() == null || course.getTrack() == student.getTrack();
+  }
+
+  private Student toStudentModel(JUser student) {
+    UUID activeGroupId =
+        studentGroupHistoryRepository
+            .findByStudentIdAndEndDateIsNull(student.getId())
+            .map(history -> history.getGroup().getId())
+            .orElse(null);
+
+    return Student.builder()
+        .id(student.getId())
+        .ref(student.getRef())
+        .name(student.getName())
+        .firstname(student.getFirstname())
+        .email(student.getEmail())
+        .cohortId(student.getCohort() != null ? student.getCohort().getId() : null)
+        .groupId(activeGroupId)
+        .track(student.getTrack())
+        .status(student.getCursusStatus())
+        .build();
   }
 
   @Transactional

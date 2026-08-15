@@ -5,6 +5,7 @@ import com.haja.school.repository.model.JUser;
 import com.haja.school.service.CohortService;
 import com.haja.school.service.GraduateService;
 import java.security.Principal;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -79,7 +80,26 @@ public class LoginViewController {
   @PreAuthorize("hasRole('STUDENT')")
   public String studentDashboard(Principal principal, Model model) {
     populateUserModel(principal, model);
+    if (model.getAttribute("user") instanceof JUser user) {
+      Integer studyYear = resolveCurrentStudyYear(user);
+      if (studyYear != null) {
+        model.addAttribute("studyYear", studyYear);
+        model.addAttribute("academicYear", user.getCohort().getEntryYear() + studyYear - 1);
+      }
+    }
     return "student-dashboard";
+  }
+
+  private Integer resolveCurrentStudyYear(JUser user) {
+    if (user.getCohort() == null || user.getCohort().getEntryYear() == null) {
+      return null;
+    }
+    int entryYear = user.getCohort().getEntryYear();
+    int currentYear = LocalDate.now().getYear();
+    int currentMonth = LocalDate.now().getMonthValue();
+    int yearsPassed = currentYear - entryYear;
+    int semester = Math.max(1, Math.min(6, yearsPassed * 2 + (currentMonth >= 9 ? 1 : 0)));
+    return (semester + 1) / 2;
   }
 
   private String redirectBasedOnRole(Authentication authentication) {

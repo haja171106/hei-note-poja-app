@@ -65,7 +65,7 @@
         main {
             flex: 1;
             padding: 2rem;
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
             width: 100%;
         }
@@ -78,18 +78,65 @@
             margin-bottom: 2rem;
         }
 
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .card {
+        .section {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 1.5rem;
+            margin-top: 1.5rem;
         }
+
+        .section-head h2 { font-size: 1.1rem; font-weight: 700; }
+
+        .course-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.25rem;
+        }
+
+        .course-card {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .course-card h3 { font-size: 1rem; font-weight: 700; }
+
+        .course-meta {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            line-height: 1.6;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+
+        th {
+            text-align: left;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        td .sub { color: var(--text-secondary); font-size: 0.75rem; }
+
+        .avg-value { font-weight: 600; }
+        .avg-missing { color: var(--text-secondary); font-style: italic; }
+
+        .loading-note { color: var(--text-secondary); padding: 1rem 0; font-size: 0.9rem; }
+        .empty-note { color: var(--text-secondary); padding: 1rem 0; text-align: center; font-size: 0.9rem; }
+        .error-note { color: #fca5a5; padding: 1rem 0; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -107,19 +154,128 @@
             <p style="color: var(--text-secondary); margin-top: 0.5rem;">Grade entry and management for your assigned courses.</p>
         </div>
 
-        <div class="grid">
-            <div class="card">
-                <h3>📚 My Courses</h3>
-                <p style="color: var(--text-secondary); margin-top: 0.5rem;">View your assigned course list for the current academic year.</p>
+        <div class="section">
+            <div class="section-head">
+                <h2>📚 My Courses</h2>
             </div>
-            <div class="card">
-                <h3>📝 Grade Entry</h3>
-                <p style="color: var(--text-secondary); margin-top: 0.5rem;">Enter and update exam grades with full audit history tracking.</p>
+            <div id="courses-section">
+                <div class="loading-note">Loading your courses...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-head">
+                <h2>📊 Student Averages</h2>
+            </div>
+            <div id="averages-section">
+                <div class="loading-note">Loading student averages...</div>
             </div>
         </div>
     </main>
 
-    <script>
+    <script th:inline="javascript">
+        const TEACHER_ID = /*[[${user != null ? user.id : ''}]]*/ '';
+
+        async function fetchJson(url) {
+            const response = await fetch(url, { credentials: 'same-origin' });
+            if (!response.ok) {
+                throw new Error('Request to ' + url + ' failed with status ' + response.status);
+            }
+            return response.json();
+        }
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
+        }
+
+        function formatAverage(value) {
+            if (value === null || value === undefined) {
+                return '<span class="avg-missing">Not graded yet</span>';
+            }
+            return '<span class="avg-value">' + value.toFixed(2) + '</span>';
+        }
+
+        function renderCourses(courses) {
+            const section = document.getElementById('courses-section');
+            if (!courses || courses.length === 0) {
+                section.innerHTML = '<div class="empty-note">No courses assigned to you for this academic year.</div>';
+                return;
+            }
+
+            section.innerHTML = '<div class="course-list">' + courses.map(function (course) {
+                return '<div class="course-card">' +
+                    '<h3>' + escapeHtml(course.ref) + ' &mdash; ' + escapeHtml(course.title) + '</h3>' +
+                    '<div class="course-meta">' +
+                        'Credits: ' + (course.credit != null ? course.credit : '—') +
+                        '<br>Semester: ' + (course.semesterNumber != null ? course.semesterNumber : '—') +
+                        (course.track ? '<br>Track: ' + escapeHtml(course.track) : '') +
+                    '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
+
+        async function loadStudentAveragesForCourse(course) {
+            const studyYear = Math.ceil(course.semesterNumber / 2);
+            const students = await fetchJson('/courses/' + course.id + '/students');
+            const rows = [];
+
+            for (const student of students) {
+                let average = null;
+                try {
+                    const summary = await fetchJson('/students/' + student.id + '/years/' + studyYear + '/summary');
+                    average = summary.overallAverage;
+                } catch (error) {
+                    average = null;
+                }
+                rows.push(
+                    '<tr>' +
+                        '<td>' + escapeHtml(student.ref) + '<div class="sub">' +
+                            escapeHtml(student.firstname) + ' ' + escapeHtml(student.name) + '</div></td>' +
+                        '<td>' + formatAverage(average) + '</td>' +
+                    '</tr>');
+            }
+
+            return '<div class="course-card">' +
+                '<h3>' + escapeHtml(course.ref) + ' &mdash; ' + escapeHtml(course.title) + '</h3>' +
+                '<div class="course-meta">Credits: ' + (course.credit != null ? course.credit : '—') +
+                    ' &bull; Year ' + studyYear + '</div>' +
+                (rows.length === 0
+                    ? '<div class="empty-note">No students for this course.</div>'
+                    : '<table>' +
+                        '<thead><tr><th>Student</th><th>Overall Average</th></tr></thead>' +
+                        '<tbody>' + rows.join('') + '</tbody>' +
+                      '</table>') +
+            '</div>';
+        }
+
+        async function loadTeacherDashboard() {
+            try {
+                const courses = await fetchJson('/teachers/' + TEACHER_ID + '/courses');
+                renderCourses(courses);
+
+                const averagesSection = document.getElementById('averages-section');
+                if (!courses || courses.length === 0) {
+                    averagesSection.innerHTML = '<div class="empty-note">No assigned courses to compute averages for.</div>';
+                    return;
+                }
+
+                averagesSection.innerHTML = '<div class="loading-note">Loading student averages...</div>';
+                const cards = [];
+                for (const course of courses) {
+                    cards.push(await loadStudentAveragesForCourse(course));
+                }
+                averagesSection.innerHTML = '<div class="course-list">' + cards.join('') + '</div>';
+            } catch (error) {
+                document.getElementById('courses-section').innerHTML =
+                    '<div class="error-note">Failed to load your courses. Please try again later.</div>';
+                document.getElementById('averages-section').innerHTML = '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTeacherDashboard);
+
         function logout() {
             document.cookie = 'jwt_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
             localStorage.clear();
