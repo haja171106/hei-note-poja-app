@@ -100,6 +100,97 @@
 
         .detail-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
         .detail-val { font-size: 1.1rem; font-weight: 600; margin-top: 0.25rem; }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .section-head h2 { font-size: 1.1rem; font-weight: 700; }
+
+        .year-select {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .average-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1.25rem;
+        }
+
+        .average-card {
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .average-card .label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .average-card .value { font-size: 2rem; font-weight: 700; margin-top: 0.35rem; }
+        .average-card .value.muted { color: var(--text-secondary); font-size: 1.5rem; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.35rem 0.85rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.complete { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .status-badge.provisional { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1.25rem; }
+
+        th {
+            text-align: left;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        td .sub { color: var(--text-secondary); font-size: 0.8rem; }
+
+        .grade-value { font-weight: 600; }
+        .grade-missing { color: var(--text-secondary); font-style: italic; }
+
+        .empty-note {
+            color: var(--text-secondary);
+            padding: 1.25rem 0.75rem;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .loading-note { color: var(--text-secondary); padding: 1rem 0; font-size: 0.9rem; }
+        .error-note { color: #fca5a5; padding: 1rem 0; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -133,9 +224,151 @@
                 <div class="detail-val" th:text="${user != null && user.cursusStatus != null ? user.cursusStatus : 'ACTIVE'}">ACTIVE</div>
             </div>
         </div>
+
+        <div class="section">
+            <div class="section-head">
+                <h2>📊 Academic Report</h2>
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                    Academic Year
+                    <select id="year-select" class="year-select" onchange="onYearChange()"></select>
+                </label>
+            </div>
+
+            <div id="average-section">
+                <div class="loading-note">Loading your grades...</div>
+            </div>
+
+            <div id="grades-section">
+                <div class="loading-note">Loading your grades...</div>
+            </div>
+        </div>
     </main>
 
-    <script>
+    <script th:inline="javascript">
+        const STUDENT_ID = /*[[${user != null ? user.id : ''}]]*/ '';
+        const DEFAULT_STUDY_YEAR = /*[[${studyYear != null ? studyYear : 1}]]*/ 1;
+        const DEFAULT_ACADEMIC_YEAR = /*[[${academicYear != null ? academicYear : null}]]*/ null;
+
+        async function fetchJson(url) {
+            const response = await fetch(url, { credentials: 'same-origin' });
+            if (!response.ok) {
+                throw new Error('Request to ' + url + ' failed with status ' + response.status);
+            }
+            return response.json();
+        }
+
+        function academicYearForStudyYear(studyYear) {
+            if (DEFAULT_ACADEMIC_YEAR === null) return null;
+            return DEFAULT_ACADEMIC_YEAR - (DEFAULT_STUDY_YEAR - studyYear);
+        }
+
+        function formatGrade(value) {
+            return value !== null && value !== undefined ? value.toFixed(2) : null;
+        }
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
+        }
+
+        function renderAverage(summary) {
+            const statusClass = summary.status === 'COMPLETE' ? 'complete' : 'provisional';
+            const average =
+                summary.overallAverage !== null && summary.overallAverage !== undefined
+                    ? '<div class="value">' + summary.overallAverage.toFixed(2) + '</div>'
+                    : '<div class="value muted">Not graded yet</div>';
+
+            document.getElementById('average-section').innerHTML =
+                '<div class="average-grid">' +
+                    '<div class="average-card">' +
+                        '<div class="label">Overall Average</div>' + average +
+                    '</div>' +
+                    '<div class="average-card">' +
+                        '<div class="label">Credits</div>' +
+                        '<div class="value">' + (summary.totalCredits != null ? summary.totalCredits : '—') + '</div>' +
+                    '</div>' +
+                    '<div class="average-card">' +
+                        '<div class="label">Status</div>' +
+                        '<div style="margin-top: 0.6rem;"><span class="status-badge ' + statusClass + '">' +
+                            escapeHtml(summary.status) + '</span></div>' +
+                    '</div>' +
+                '</div>';
+        }
+
+        function renderGrades(courses) {
+            const section = document.getElementById('grades-section');
+            if (!courses || courses.length === 0) {
+                section.innerHTML = '<div class="empty-note">No grades available for this academic year.</div>';
+                return;
+            }
+
+            const rows = courses.map(function (course) {
+                const finalGrade = formatGrade(course.finalGrade);
+                const gradeCell =
+                    finalGrade !== null
+                        ? '<span class="grade-value">' + finalGrade + '</span>'
+                        : '<span class="grade-missing">Not graded yet</span>';
+                return '<tr>' +
+                    '<td>' + escapeHtml(course.courseRef) + '<div class="sub">' + escapeHtml(course.courseTitle) + '</div></td>' +
+                    '<td>' + (course.credit != null ? course.credit : '—') + '</td>' +
+                    '<td>' + gradeCell + '</td>' +
+                '</tr>';
+            }).join('');
+
+            section.innerHTML =
+                '<table>' +
+                    '<thead><tr><th>Course</th><th>Credits</th><th>Final Grade</th></tr></thead>' +
+                    '<tbody>' + rows + '</tbody>' +
+                '</table>';
+        }
+
+        async function loadStudentData() {
+            const select = document.getElementById('year-select');
+            const studyYear = parseInt(select.value, 10);
+            const academicYear = academicYearForStudyYear(studyYear);
+
+            document.getElementById('average-section').innerHTML =
+                '<div class="loading-note">Loading your grades...</div>';
+            document.getElementById('grades-section').innerHTML =
+                '<div class="loading-note">Loading your grades...</div>';
+
+            try {
+                const summary = await fetchJson('/students/' + STUDENT_ID + '/years/' + studyYear + '/summary');
+                const grades = await fetchJson(
+                    '/students/' + STUDENT_ID + '/grades' +
+                    (academicYear !== null ? '?academicYear=' + academicYear : ''));
+
+                renderAverage(summary);
+                renderGrades(grades.courses || []);
+            } catch (error) {
+                document.getElementById('average-section').innerHTML = '';
+                document.getElementById('grades-section').innerHTML =
+                    '<div class="error-note">Failed to load grades. Please try again later.</div>';
+            }
+        }
+
+        function onYearChange() {
+            loadStudentData();
+        }
+
+        function initYearSelect() {
+            const select = document.getElementById('year-select');
+            select.innerHTML = '';
+            for (let year = 1; year <= 3; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = 'Year ' + year + (year === DEFAULT_STUDY_YEAR ? ' (current)' : '');
+                select.appendChild(option);
+            }
+            select.value = DEFAULT_STUDY_YEAR;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initYearSelect();
+            loadStudentData();
+        });
+
         function logout() {
             document.cookie = 'jwt_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
             localStorage.clear();

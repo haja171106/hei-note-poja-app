@@ -8,15 +8,18 @@ import com.haja.school.endpoint.rest.model.CourseCreateRequest;
 import com.haja.school.endpoint.rest.model.TeacherAssignmentRequest;
 import com.haja.school.model.Course;
 import com.haja.school.model.Role;
+import com.haja.school.model.Student;
 import com.haja.school.model.TeacherCourseAssignment;
 import com.haja.school.model.Track;
 import com.haja.school.repository.JCourseRepository;
+import com.haja.school.repository.JStudentGroupHistoryRepository;
 import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCohort;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JTeacherCourseAssignment;
 import com.haja.school.repository.model.JUser;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +38,7 @@ class CourseServiceTest {
   @Mock private JCourseRepository courseRepository;
   @Mock private JUserRepository userRepository;
   @Mock private JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
+  @Mock private JStudentGroupHistoryRepository studentGroupHistoryRepository;
 
   @InjectMocks private CourseService courseService;
 
@@ -271,5 +275,177 @@ class CourseServiceTest {
     assertThrows(
         ResponseStatusException.class,
         () -> courseService.assignTeacherToCourse(courseId, request));
+  }
+
+  @Test
+  void getStudentsByCourse_asAdmin_returnsMatchingStudents() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("admin@admin.com").role(Role.ADMIN).build();
+    JUser studentYear1 =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .ref("STD00001")
+            .name("Doe")
+            .firstname("Jane")
+            .role(Role.STUDENT)
+            .cohort(
+                JCohort.builder().id(UUID.randomUUID()).entryYear(entryYearForStudyYear(1)).build())
+            .build();
+    JUser studentYear2 =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .ref("STD00002")
+            .name("Smith")
+            .firstname("John")
+            .role(Role.STUDENT)
+            .cohort(
+                JCohort.builder().id(UUID.randomUUID()).entryYear(entryYearForStudyYear(2)).build())
+            .build();
+
+    when(userRepository.findByEmail("admin@admin.com")).thenReturn(Optional.of(admin));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+    when(userRepository.findByRole(Role.STUDENT)).thenReturn(List.of(studentYear1, studentYear2));
+    when(studentGroupHistoryRepository.findByStudentIdAndEndDateIsNull(any()))
+        .thenReturn(Optional.empty());
+
+    List<Student> result = courseService.getStudentsByCourse(courseId, "admin@admin.com");
+
+    assertEquals(1, result.size());
+    assertEquals(studentYear1.getId(), result.get(0).getId());
+    assertEquals("STD00001", result.get(0).getRef());
+  }
+
+  @Test
+  void getStudentsByCourse_asTeacher_assigned_success() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher =
+        JUser.builder().id(teacherId).email("teacher@teacher.com").role(Role.TEACHER).build();
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .ref("STD00001")
+            .role(Role.STUDENT)
+            .cohort(
+                JCohort.builder().id(UUID.randomUUID()).entryYear(entryYearForStudyYear(1)).build())
+            .build();
+
+    when(userRepository.findByEmail("teacher@teacher.com")).thenReturn(Optional.of(teacher));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(teacherId, courseId))
+        .thenReturn(true);
+    when(userRepository.findByRole(Role.STUDENT)).thenReturn(List.of(student));
+    when(studentGroupHistoryRepository.findByStudentIdAndEndDateIsNull(any()))
+        .thenReturn(Optional.empty());
+
+    List<Student> result = courseService.getStudentsByCourse(courseId, "teacher@teacher.com");
+
+    assertEquals(1, result.size());
+    assertEquals(student.getId(), result.get(0).getId());
+  }
+
+  @Test
+  void getStudentsByCourse_asTeacher_notAssigned_throwsForbidden() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher =
+        JUser.builder().id(teacherId).email("teacher@teacher.com").role(Role.TEACHER).build();
+
+    when(userRepository.findByEmail("teacher@teacher.com")).thenReturn(Optional.of(teacher));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+    when(teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(teacherId, courseId))
+        .thenReturn(false);
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.getStudentsByCourse(courseId, "teacher@teacher.com"));
+  }
+
+  @Test
+  void getStudentsByCourse_asStudent_throwsForbidden() {
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("student@student.com")
+            .role(Role.STUDENT)
+            .build();
+
+    when(userRepository.findByEmail("student@student.com")).thenReturn(Optional.of(student));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.of(sampleCourse));
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.getStudentsByCourse(courseId, "student@student.com"));
+  }
+
+  @Test
+  void getStudentsByCourse_courseNotFound_throwsNotFound() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("admin@admin.com").role(Role.ADMIN).build();
+
+    when(userRepository.findByEmail("admin@admin.com")).thenReturn(Optional.of(admin));
+    when(courseRepository.findById(courseId)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.getStudentsByCourse(courseId, "admin@admin.com"));
+  }
+
+  @Test
+  void getStudentsByCourse_callerNotFound_throwsUnauthorized() {
+    when(userRepository.findByEmail("unknown@unknown.com")).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> courseService.getStudentsByCourse(courseId, "unknown@unknown.com"));
+  }
+
+  @Test
+  void getStudentsByCourse_trackMismatch_excludesStudent() {
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("admin@admin.com").role(Role.ADMIN).build();
+    JCourse trackCourse =
+        JCourse.builder()
+            .id(UUID.randomUUID())
+            .ref("ML-TN")
+            .title("Machine Learning TN")
+            .credit(5)
+            .semesterNumber(4)
+            .track(Track.TN)
+            .build();
+    JUser tnStudent =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .ref("STD00001")
+            .role(Role.STUDENT)
+            .track(Track.TN)
+            .cohort(
+                JCohort.builder().id(UUID.randomUUID()).entryYear(entryYearForStudyYear(2)).build())
+            .build();
+    JUser elStudent =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .ref("STD00002")
+            .role(Role.STUDENT)
+            .track(Track.EL)
+            .cohort(
+                JCohort.builder().id(UUID.randomUUID()).entryYear(entryYearForStudyYear(2)).build())
+            .build();
+
+    when(userRepository.findByEmail("admin@admin.com")).thenReturn(Optional.of(admin));
+    when(courseRepository.findById(trackCourse.getId())).thenReturn(Optional.of(trackCourse));
+    when(userRepository.findByRole(Role.STUDENT)).thenReturn(List.of(tnStudent, elStudent));
+    when(studentGroupHistoryRepository.findByStudentIdAndEndDateIsNull(any()))
+        .thenReturn(Optional.empty());
+
+    List<Student> result =
+        courseService.getStudentsByCourse(trackCourse.getId(), "admin@admin.com");
+
+    assertEquals(1, result.size());
+    assertEquals("STD00001", result.get(0).getRef());
+  }
+
+  private int entryYearForStudyYear(int studyYear) {
+    int currentYear = LocalDate.now().getYear();
+    int increment = LocalDate.now().getMonthValue() >= 9 ? 1 : 0;
+    return currentYear - studyYear + increment;
   }
 }
