@@ -56,6 +56,18 @@ public class LoginViewController {
         .body(excelBytes);
   }
 
+  @GetMapping({"/ui/admin/graduates/export", "/graduates/export"})
+  @PreAuthorize("hasRole('ADMIN')")
+  public ResponseEntity<byte[]> exportAllGraduatesExcel() {
+    byte[] excelBytes = graduateService.exportAllGraduatesExcel();
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"graduates-all.xlsx\"")
+        .contentType(
+            MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(excelBytes);
+  }
+
   @GetMapping("/ui/teacher")
   @PreAuthorize("hasRole('TEACHER')")
   public String teacherDashboard(Principal principal, Model model) {

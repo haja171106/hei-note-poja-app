@@ -1,5 +1,6 @@
 package com.haja.school.service;
 
+import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Graduate;
 import com.haja.school.repository.JCohortRepository;
 import com.haja.school.repository.JGradeRepository;
@@ -9,6 +10,7 @@ import com.haja.school.repository.model.JGrade;
 import com.haja.school.repository.model.JUser;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -41,24 +43,85 @@ public class GraduateService {
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cohort not found"));
 
+    boolean cohortCompleted3Years = hasCompletedThreeYears(cohort.getEntryYear());
     List<JUser> students = userRepository.findByCohortId(cohort.getId());
     List<Graduate> list = new ArrayList<>();
 
     for (JUser student : students) {
-      List<JGrade> grades = gradeRepository.findByStudentId(student.getId());
-      double average = 0.0;
-      if (!grades.isEmpty()) {
-        double sum = grades.stream().mapToDouble(JGrade::getValue).sum();
-        average = Math.round((sum / grades.size()) * 100.0) / 100.0;
+      if (student.getCursusStatus() == CursusStatus.DROPPED_OUT) {
+        continue;
       }
 
-      list.add(
-          Graduate.builder()
-              .studentRef(student.getRef())
-              .name(student.getName())
-              .firstname(student.getFirstname())
-              .overallAverage(average)
-              .build());
+      boolean isGraduatedStatus = student.getCursusStatus() == CursusStatus.GRADUATED;
+      if (!cohortCompleted3Years && !isGraduatedStatus) {
+        continue;
+      }
+
+      List<JGrade> grades = gradeRepository.findByStudentId(student.getId());
+      if (grades.isEmpty()) {
+        continue;
+      }
+
+      double sum = grades.stream().mapToDouble(JGrade::getValue).sum();
+      double average = Math.round((sum / grades.size()) * 100.0) / 100.0;
+
+      if (average > 10.0) {
+        list.add(
+            Graduate.builder()
+                .studentRef(student.getRef())
+                .name(student.getName())
+                .firstname(student.getFirstname())
+                .overallAverage(average)
+                .build());
+      }
+    }
+
+    list.sort(Comparator.comparingDouble(Graduate::getOverallAverage).reversed());
+
+    int rank = 1;
+    for (Graduate g : list) {
+      g.setRank(rank++);
+    }
+
+    return list;
+  }
+
+  public List<Graduate> getAllGraduates() {
+    List<JCohort> allCohorts = cohortRepository.findAll();
+    List<Graduate> list = new ArrayList<>();
+
+    for (JCohort cohort : allCohorts) {
+      boolean cohortCompleted3Years = hasCompletedThreeYears(cohort.getEntryYear());
+      List<JUser> students = userRepository.findByCohortId(cohort.getId());
+
+      for (JUser student : students) {
+        if (student.getCursusStatus() == CursusStatus.DROPPED_OUT) {
+          continue;
+        }
+
+        boolean isGraduatedStatus = student.getCursusStatus() == CursusStatus.GRADUATED;
+        if (!cohortCompleted3Years && !isGraduatedStatus) {
+          continue;
+        }
+
+        List<JGrade> grades = gradeRepository.findByStudentId(student.getId());
+        if (grades.isEmpty()) {
+          continue;
+        }
+
+        double sum = grades.stream().mapToDouble(JGrade::getValue).sum();
+        double average = Math.round((sum / grades.size()) * 100.0) / 100.0;
+
+        if (average > 10.0) {
+          list.add(
+              Graduate.builder()
+                  .studentRef(student.getRef())
+                  .name(student.getName())
+                  .firstname(student.getFirstname())
+                  .overallAverage(average)
+                  .build());
+        }
+      }
     }
 
     list.sort(Comparator.comparingDouble(Graduate::getOverallAverage).reversed());
@@ -79,11 +142,19 @@ public class GraduateService {
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cohort not found"));
 
     List<Graduate> graduates = getGraduatesByCohort(cohortId);
+    return buildExcel(graduates, "Graduates - " + cohort.getRef());
+  }
 
+  public byte[] exportAllGraduatesExcel() {
+    List<Graduate> graduates = getAllGraduates();
+    return buildExcel(graduates, "All Graduates");
+  }
+
+  private byte[] buildExcel(List<Graduate> graduates, String sheetTitle) {
     try (XSSFWorkbook workbook = new XSSFWorkbook();
         ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-      Sheet sheet = workbook.createSheet("Graduates - " + cohort.getRef());
+      Sheet sheet = workbook.createSheet(sheetTitle);
 
       CellStyle headerStyle = workbook.createCellStyle();
       Font headerFont = workbook.createFont();
@@ -121,5 +192,13 @@ public class GraduateService {
       throw new ResponseStatusException(
           HttpStatus.INTERNAL_SERVER_ERROR, "Error generating Excel report", e);
     }
+  }
+
+  private boolean hasCompletedThreeYears(Integer entryYear) {
+    if (entryYear == null) {
+      return false;
+    }
+    int currentYear = LocalDate.now().getYear();
+    return (currentYear - entryYear) >= 3;
   }
 }
