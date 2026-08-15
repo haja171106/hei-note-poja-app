@@ -3,9 +3,11 @@ package com.haja.school.endpoint.rest.controller;
 import com.haja.school.endpoint.rest.model.CourseCreateRequest;
 import com.haja.school.endpoint.rest.model.TeacherAssignmentRequest;
 import com.haja.school.model.Course;
+import com.haja.school.model.Exam;
 import com.haja.school.model.TeacherCourseAssignment;
 import com.haja.school.model.Track;
 import com.haja.school.service.CourseService;
+import com.haja.school.service.ExamService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CourseController {
 
   private final CourseService courseService;
+  private final ExamService examService;
 
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT')")
@@ -50,5 +53,15 @@ public class CourseController {
       @PathVariable UUID id, @Valid @RequestBody TeacherAssignmentRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(courseService.assignTeacherToCourse(id, request));
+  }
+
+  @GetMapping("/{id}/exams")
+  @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT')")
+  public ResponseEntity<List<Exam>> getCourseExams(
+      @PathVariable UUID id,
+      @RequestParam(required = false) Integer academicYear,
+      Authentication authentication) {
+    return ResponseEntity.ok(
+        examService.getExamsByCourse(id, academicYear, authentication.getName()));
   }
 }
