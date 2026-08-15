@@ -2,13 +2,16 @@ package com.haja.school.service;
 
 import com.haja.school.endpoint.rest.model.ExamCreateRequest;
 import com.haja.school.model.Exam;
+import com.haja.school.model.Grade;
 import com.haja.school.model.Role;
 import com.haja.school.repository.JCourseRepository;
 import com.haja.school.repository.JExamRepository;
+import com.haja.school.repository.JGradeRepository;
 import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JExam;
+import com.haja.school.repository.model.JGrade;
 import com.haja.school.repository.model.JUser;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,6 +30,7 @@ public class ExamService {
   private final JCourseRepository courseRepository;
   private final JUserRepository userRepository;
   private final JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
+  private final JGradeRepository gradeRepository;
 
   public List<Exam> getExamsByCourse(UUID courseId, Integer academicYear, String callerEmail) {
     JUser caller =
@@ -51,6 +55,45 @@ public class ExamService {
             : examRepository.findByCourseId(courseId);
 
     return exams.stream().map(this::toModel).toList();
+  }
+
+  public List<Grade> getGradesByExam(UUID examId, String callerEmail) {
+    JUser caller =
+        userRepository
+            .findByEmail(callerEmail)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+    JExam exam =
+        examRepository
+            .findById(examId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exam not found"));
+
+    validateGradeAccess(caller, exam);
+
+    return gradeRepository.findByExamId(examId).stream().map(this::toGradeModel).toList();
+  }
+
+  private void validateGradeAccess(JUser caller, JExam exam) {
+    if (caller.getRole() == Role.ADMIN) {
+      return;
+    }
+
+    if (caller.getRole() == Role.TEACHER) {
+      boolean isAssigned =
+          teacherCourseAssignmentRepository.existsByTeacherIdAndCourseId(
+              caller.getId(), exam.getCourse().getId());
+      if (!isAssigned) {
+        throw new ResponseStatusException(
+            HttpStatus.FORBIDDEN, "Access denied: teacher is not assigned to the exam's course");
+      }
+      return;
+    }
+
+    throw new ResponseStatusException(
+        HttpStatus.FORBIDDEN, "Access denied: insufficient permissions");
   }
 
   @Transactional
@@ -167,6 +210,17 @@ public class ExamService {
         .label(jExam.getLabel())
         .dateExam(jExam.getDateExam())
         .coefficient(jExam.getCoefficient())
+        .build();
+  }
+
+  private Grade toGradeModel(JGrade grade) {
+    return Grade.builder()
+        .id(grade.getId())
+        .examId(grade.getExam().getId())
+        .studentId(grade.getStudent().getId())
+        .value(grade.getValue())
+        .enteredBy(grade.getEnteredBy() != null ? grade.getEnteredBy().getId() : null)
+        .enteredAt(grade.getEnteredAt())
         .build();
   }
 }
