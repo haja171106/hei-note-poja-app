@@ -14,6 +14,8 @@ public interface JTeacherCourseAssignmentRepository
   boolean existsByTeacherIdAndCourseIdAndAcademicYear(
       UUID teacherId, UUID courseId, Integer academicYear);
 
+  boolean existsByTeacherIdAndCourseId(UUID teacherId, UUID courseId);
+
   Optional<JTeacherCourseAssignment> findByTeacherIdAndCourseIdAndAcademicYear(
       UUID teacherId, UUID courseId, Integer academicYear);
 
