@@ -1,6 +1,7 @@
 package com.haja.school.repository;
 
 import com.haja.school.repository.model.JStudentGroupHistory;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,4 +14,6 @@ public interface JStudentGroupHistoryRepository extends JpaRepository<JStudentGr
   List<JStudentGroupHistory> findByGroupCohortIdAndEndDateIsNull(UUID cohortId);
 
   Optional<JStudentGroupHistory> findByStudentIdAndEndDateIsNull(UUID studentId);
+
+  List<JStudentGroupHistory> findByStudentIdInAndEndDateIsNull(Collection<UUID> studentIds);
 }

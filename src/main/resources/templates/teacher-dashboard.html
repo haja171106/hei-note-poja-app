@@ -456,37 +456,27 @@
             }
         }
 
-        async function loadGradeBoardForCourse(course) {
+        function renderGradeBoard(board) {
+            const course = board.course;
             const studyYear = Math.ceil(course.semesterNumber / 2);
-            const students = await fetchJson('/courses/' + course.id + '/students');
-            const exams = await fetchJson('/courses/' + course.id + '/exams');
+            const students = board.students || [];
+            const exams = board.exams || [];
+            const averages = board.studentAverages || {};
 
             const gradesByExam = {};
-            for (const exam of exams) {
-                gradesByExam[exam.id] = {};
-                try {
-                    const grades = await fetchJson('/exams/' + exam.id + '/grades');
-                    grades.forEach(g => { gradesByExam[exam.id][g.studentId] = g.value; });
-                } catch {
+            (board.grades || []).forEach(function (g) {
+                if (!gradesByExam[g.examId]) {
+                    gradesByExam[g.examId] = {};
                 }
-            }
-
-            const averages = {};
-            for (const student of students) {
-                try {
-                    const summary = await fetchJson('/students/' + student.id + '/years/' + studyYear + '/summary');
-                    averages[student.id] = summary.overallAverage;
-                } catch (error) {
-                    averages[student.id] = null;
-                }
-            }
+                gradesByExam[g.examId][g.studentId] = g.value;
+            });
 
             const examHeaders = exams.map(exam =>
                 '<th>' + escapeHtml(exam.label) + '<div class="sub">coef ' + exam.coefficient + '</div></th>').join('');
 
             const rows = students.map(student => {
                 const examCells = exams.map(exam => {
-                    const value = gradesByExam[exam.id][student.id];
+                    const value = gradesByExam[exam.id] ? gradesByExam[exam.id][student.id] : undefined;
                     return '<td>' + renderGradeCell(exam.id, student.id, student.ref, value === undefined ? null : value) + '</td>';
                 }).join('');
                 return '<tr>' +
@@ -516,7 +506,8 @@
         async function loadTeacherDashboard() {
             const averagesSection = document.getElementById('averages-section');
             try {
-                const courses = await fetchJson('/teachers/' + TEACHER_ID + '/courses');
+                const board = await fetchJson('/teachers/' + TEACHER_ID + '/grades');
+                const courses = (board.courses || []).map(c => c.course);
                 renderCourses(courses);
 
                 if (!courses || courses.length === 0) {
@@ -524,12 +515,7 @@
                     return;
                 }
 
-                averagesSection.innerHTML = '<div class="loading-note">Loading student grades...</div>';
-                const cards = [];
-                for (const course of courses) {
-                    cards.push(await loadGradeBoardForCourse(course));
-                }
-                averagesSection.innerHTML = '<div class="grade-list">' + cards.join('') + '</div>';
+                averagesSection.innerHTML = '<div class="grade-list">' + board.courses.map(renderGradeBoard).join('') + '</div>';
             } catch (error) {
                 document.getElementById('courses-section').innerHTML =
                     '<div class="error-note">Failed to load your courses. Please try again later.</div>';

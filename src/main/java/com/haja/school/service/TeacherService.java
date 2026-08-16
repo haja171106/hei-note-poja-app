@@ -2,14 +2,29 @@ package com.haja.school.service;
 
 import com.haja.school.endpoint.rest.model.TeacherCreateRequest;
 import com.haja.school.model.Course;
+import com.haja.school.model.Exam;
+import com.haja.school.model.Grade;
 import com.haja.school.model.Role;
+import com.haja.school.model.Student;
 import com.haja.school.model.Teacher;
+import com.haja.school.model.TeacherCourseBoard;
+import com.haja.school.model.TeacherGradeBoard;
 import com.haja.school.repository.JCourseRepository;
+import com.haja.school.repository.JExamRepository;
+import com.haja.school.repository.JGradeRepository;
+import com.haja.school.repository.JStudentGroupHistoryRepository;
+import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
+import com.haja.school.repository.model.JExam;
+import com.haja.school.repository.model.JGrade;
+import com.haja.school.repository.model.JTeacherCourseAssignment;
 import com.haja.school.repository.model.JUser;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +38,12 @@ public class TeacherService {
 
   private final JUserRepository userRepository;
   private final JCourseRepository courseRepository;
+  private final JExamRepository examRepository;
+  private final JGradeRepository gradeRepository;
+  private final JTeacherCourseAssignmentRepository teacherCourseAssignmentRepository;
+  private final JStudentGroupHistoryRepository studentGroupHistoryRepository;
+  private final CourseService courseService;
+  private final GradeCalculationService gradeCalculationService;
   private final PasswordEncoder passwordEncoder;
 
   @Transactional
@@ -79,6 +100,135 @@ public class TeacherService {
     return courseRepository.findByTeacherId(teacher.getId()).stream()
         .map(this::toCourseModel)
         .toList();
+  }
+
+  public TeacherGradeBoard getTeacherGradeBoard(UUID teacherId, String callerEmail) {
+    JUser caller =
+        userRepository
+            .findByEmail(callerEmail)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+    if (caller.getRole() == Role.TEACHER && !caller.getId().equals(teacherId)) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Teachers can only view their own courses");
+    }
+
+    JUser teacher =
+        userRepository
+            .findById(teacherId)
+            .filter(u -> u.getRole() == Role.TEACHER)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher not found"));
+
+    List<JCourse> courses = courseRepository.findByTeacherId(teacher.getId());
+    if (courses.isEmpty()) {
+      return TeacherGradeBoard.builder().courses(List.of()).build();
+    }
+
+    List<JUser> allStudents = userRepository.findByRole(Role.STUDENT);
+    Map<UUID, JUser> studentById =
+        allStudents.stream().collect(Collectors.toMap(JUser::getId, student -> student));
+    Map<UUID, UUID> groupIdByStudent =
+        studentGroupHistoryRepository
+            .findByStudentIdInAndEndDateIsNull(allStudents.stream().map(JUser::getId).toList())
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    history -> history.getStudent().getId(),
+                    history -> history.getGroup().getId(),
+                    (first, second) -> first));
+
+    List<JCourse> allCourses = courseRepository.findAll();
+    Map<UUID, List<JExam>> examsByCourse =
+        examRepository.findAll().stream()
+            .collect(Collectors.groupingBy(exam -> exam.getCourse().getId()));
+    Map<UUID, Map<UUID, Double>> gradesByStudent =
+        gradeRepository.findByStudentIdIn(allStudents.stream().map(JUser::getId).toList()).stream()
+            .collect(
+                Collectors.groupingBy(
+                    grade -> grade.getStudent().getId(),
+                    Collectors.toMap(
+                        grade -> grade.getExam().getId(),
+                        JGrade::getValue,
+                        (first, second) -> second)));
+    Map<UUID, Set<Integer>> teacherAcademicYearsByCourse =
+        teacherCourseAssignmentRepository.findByTeacherId(teacher.getId()).stream()
+            .collect(
+                Collectors.groupingBy(
+                    assignment -> assignment.getCourse().getId(),
+                    Collectors.mapping(
+                        JTeacherCourseAssignment::getAcademicYear, Collectors.toSet())));
+
+    List<TeacherCourseBoard> boards =
+        courses.stream()
+            .map(
+                course -> {
+                  List<Student> students =
+                      courseService.filterStudentsForCourse(course, allStudents, groupIdByStudent);
+                  List<Exam> exams =
+                      examsByCourse.getOrDefault(course.getId(), List.of()).stream()
+                          .map(this::toExamModel)
+                          .toList();
+                  List<Grade> grades =
+                      examsByCourse.getOrDefault(course.getId(), List.of()).stream()
+                          .flatMap(exam -> examGrades(exam, gradesByStudent).stream())
+                          .toList();
+                  int studyYear = (course.getSemesterNumber() + 1) / 2;
+                  Map<UUID, Double> studentAverages =
+                      students.stream()
+                          .collect(
+                              Collectors.toMap(
+                                  Student::getId,
+                                  student ->
+                                      gradeCalculationService
+                                          .computeTeacherPartialSummaryInMemory(
+                                              studentById.get(student.getId()),
+                                              studyYear,
+                                              teacher,
+                                              allCourses,
+                                              examsByCourse,
+                                              gradesByStudent,
+                                              teacherAcademicYearsByCourse)
+                                          .getOverallAverage(),
+                                  (first, second) -> second));
+                  return TeacherCourseBoard.builder()
+                      .course(toCourseModel(course))
+                      .students(students)
+                      .exams(exams)
+                      .grades(grades)
+                      .studentAverages(studentAverages)
+                      .build();
+                })
+            .toList();
+
+    return TeacherGradeBoard.builder().courses(boards).build();
+  }
+
+  private List<Grade> examGrades(JExam exam, Map<UUID, Map<UUID, Double>> gradesByStudent) {
+    return gradesByStudent.entrySet().stream()
+        .filter(entry -> entry.getValue().containsKey(exam.getId()))
+        .map(
+            entry ->
+                Grade.builder()
+                    .examId(exam.getId())
+                    .studentId(entry.getKey())
+                    .value(entry.getValue().get(exam.getId()))
+                    .build())
+        .toList();
+  }
+
+  private Exam toExamModel(JExam jExam) {
+    return Exam.builder()
+        .id(jExam.getId())
+        .courseId(jExam.getCourse().getId())
+        .academicYear(jExam.getAcademicYear())
+        .label(jExam.getLabel())
+        .dateExam(jExam.getDateExam())
+        .coefficient(jExam.getCoefficient())
+        .build();
   }
 
   private Course toCourseModel(JCourse jCourse) {
