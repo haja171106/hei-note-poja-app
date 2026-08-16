@@ -3,6 +3,7 @@ package com.haja.school.endpoint.rest.controller;
 import com.haja.school.endpoint.rest.model.TeacherCreateRequest;
 import com.haja.school.model.Course;
 import com.haja.school.model.Teacher;
+import com.haja.school.model.TeacherGradeBoard;
 import com.haja.school.service.TeacherService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -37,5 +38,12 @@ public class TeacherController {
   public ResponseEntity<List<Course>> getCoursesByTeacher(
       @PathVariable UUID id, Authentication authentication) {
     return ResponseEntity.ok(teacherService.getCoursesByTeacher(id, authentication.getName()));
+  }
+
+  @GetMapping("/{id}/grades")
+  @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+  public ResponseEntity<TeacherGradeBoard> getTeacherGradeBoard(
+      @PathVariable UUID id, Authentication authentication) {
+    return ResponseEntity.ok(teacherService.getTeacherGradeBoard(id, authentication.getName()));
   }
 }

@@ -24,7 +24,9 @@ import com.haja.school.repository.model.JGradeHistory;
 import com.haja.school.repository.model.JUser;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -701,6 +703,106 @@ class GradeCalculationServiceTest {
             () -> gradeCalculationService.getStudentGradeHistory(studentId, "unknown@unknown.com"));
 
     assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+  }
+
+  @Test
+  void computeTeacherPartialSummaryInMemory_limitedToAssignedCourses() {
+    JUser teacher =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.teacher@teacher.com")
+            .role(Role.TEACHER)
+            .build();
+    List<JCourse> allCourses = List.of(courseA, courseB);
+    Map<UUID, List<JExam>> examsByCourse =
+        Map.of(courseA.getId(), List.of(examA1), courseB.getId(), List.of(examB1));
+    Map<UUID, Map<UUID, Double>> gradesByStudent = Map.of();
+    Map<UUID, Set<Integer>> teacherAcademicYearsByCourse = Map.of(courseA.getId(), Set.of(2023));
+
+    YearSummary summary =
+        gradeCalculationService.computeTeacherPartialSummaryInMemory(
+            student,
+            1,
+            teacher,
+            allCourses,
+            examsByCourse,
+            gradesByStudent,
+            teacherAcademicYearsByCourse);
+
+    assertNotNull(summary);
+    assertEquals(1, summary.getCourses().size());
+    assertEquals("ALGO", summary.getCourses().get(0).getCourseRef());
+    assertEquals(6, summary.getTotalCredits());
+    assertNull(summary.getOverallAverage());
+    assertEquals(ReportStatus.PROVISIONAL, summary.getStatus());
+  }
+
+  @Test
+  void computeTeacherPartialSummaryInMemory_creditWeightedAverage() {
+    JUser teacher =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.teacher@teacher.com")
+            .role(Role.TEACHER)
+            .build();
+    List<JCourse> allCourses = List.of(courseA, courseB);
+    Map<UUID, List<JExam>> examsByCourse =
+        Map.of(courseA.getId(), List.of(examA1), courseB.getId(), List.of(examB1));
+    Map<UUID, Map<UUID, Double>> gradesByStudent = Map.of(studentId, Map.of(examA1.getId(), 10.0));
+    Map<UUID, Set<Integer>> teacherAcademicYearsByCourse = Map.of(courseA.getId(), Set.of(2023));
+
+    YearSummary summary =
+        gradeCalculationService.computeTeacherPartialSummaryInMemory(
+            student,
+            1,
+            teacher,
+            allCourses,
+            examsByCourse,
+            gradesByStudent,
+            teacherAcademicYearsByCourse);
+
+    assertNotNull(summary);
+    assertEquals(1, summary.getCourses().size());
+    assertEquals(4.0, summary.getCourses().get(0).getFinalGrade());
+    assertEquals(4.0, summary.getOverallAverage());
+    assertEquals(6, summary.getTotalCredits());
+  }
+
+  @Test
+  void computeTeacherPartialSummaryInMemory_studentWithoutCohort_usesCourseOnlyExams() {
+    JUser studentWithoutCohort =
+        JUser.builder()
+            .id(studentId)
+            .email("hei.student@student.com")
+            .role(Role.STUDENT)
+            .track(null)
+            .cohort(null)
+            .build();
+    JUser teacher =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .email("hei.teacher@teacher.com")
+            .role(Role.TEACHER)
+            .build();
+    List<JCourse> allCourses = List.of(courseA);
+    Map<UUID, List<JExam>> examsByCourse = Map.of(courseA.getId(), List.of(examA1));
+    Map<UUID, Map<UUID, Double>> gradesByStudent = Map.of(studentId, Map.of(examA1.getId(), 10.0));
+    Map<UUID, Set<Integer>> teacherAcademicYearsByCourse = Map.of(courseA.getId(), Set.of(2023));
+
+    YearSummary summary =
+        gradeCalculationService.computeTeacherPartialSummaryInMemory(
+            studentWithoutCohort,
+            1,
+            teacher,
+            allCourses,
+            examsByCourse,
+            gradesByStudent,
+            teacherAcademicYearsByCourse);
+
+    assertNotNull(summary);
+    assertEquals(1, summary.getCourses().size());
+    assertEquals(4.0, summary.getOverallAverage());
+    assertEquals(6, summary.getTotalCredits());
   }
 
   private JExam exam(JCourse course, double coefficient) {

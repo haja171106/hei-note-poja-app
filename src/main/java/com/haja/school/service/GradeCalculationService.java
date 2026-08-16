@@ -108,6 +108,114 @@ public class GradeCalculationService {
     return buildSummary(student, year, assignedCourses, calendarYear);
   }
 
+  public YearSummary computeTeacherPartialSummaryInMemory(
+      JUser student,
+      int year,
+      JUser teacher,
+      List<JCourse> allCourses,
+      Map<UUID, List<JExam>> examsByCourse,
+      Map<UUID, Map<UUID, Double>> gradesByStudent,
+      Map<UUID, Set<Integer>> teacherAcademicYearsByCourse) {
+    Integer calendarYear = calendarAcademicYear(student, year);
+    List<JCourse> assignedCourses =
+        allCourses.stream()
+            .filter(course -> isInYearCourses(course, student, year))
+            .filter(
+                course ->
+                    isAssignedToCourseInMemory(
+                        course.getId(), calendarYear, teacherAcademicYearsByCourse))
+            .toList();
+    Map<UUID, Double> gradeByExam = gradesByStudent.getOrDefault(student.getId(), Map.of());
+    return buildSummaryInMemory(
+        student, year, assignedCourses, calendarYear, examsByCourse, gradeByExam);
+  }
+
+  private boolean isInYearCourses(JCourse course, JUser student, int year) {
+    if (course.getSemesterNumber() != year * 2 - 1 && course.getSemesterNumber() != year * 2) {
+      return false;
+    }
+    return isCourseExpectedForStudent(course, student);
+  }
+
+  private boolean isAssignedToCourseInMemory(
+      UUID courseId, Integer calendarYear, Map<UUID, Set<Integer>> teacherAcademicYearsByCourse) {
+    Set<Integer> assignedYears = teacherAcademicYearsByCourse.get(courseId);
+    if (assignedYears == null || assignedYears.isEmpty()) {
+      return false;
+    }
+    if (calendarYear == null) {
+      return true;
+    }
+    return assignedYears.contains(calendarYear);
+  }
+
+  private YearSummary buildSummaryInMemory(
+      JUser student,
+      int year,
+      List<JCourse> courses,
+      Integer calendarYear,
+      Map<UUID, List<JExam>> examsByCourse,
+      Map<UUID, Double> gradeByExam) {
+    List<CourseGradeSummary> courseSummaries = new ArrayList<>();
+    int totalCredits = 0;
+    double weightedSum = 0;
+    int gradedCredits = 0;
+    ReportStatus status = ReportStatus.COMPLETE;
+
+    for (JCourse course : courses) {
+      totalCredits += course.getCredit();
+
+      double courseWeightedSum = 0;
+      boolean hasGrade = false;
+      for (JExam exam : findExamsInMemory(examsByCourse, course, calendarYear)) {
+        Double value = gradeByExam.get(exam.getId());
+        if (value == null) {
+          status = ReportStatus.PROVISIONAL;
+        } else {
+          courseWeightedSum += value * exam.getCoefficient();
+          hasGrade = true;
+        }
+      }
+
+      Double finalGrade = hasGrade ? round2(courseWeightedSum) : null;
+      courseSummaries.add(
+          CourseGradeSummary.builder()
+              .courseId(course.getId())
+              .courseRef(course.getRef())
+              .courseTitle(course.getTitle())
+              .credit(course.getCredit())
+              .finalGrade(finalGrade)
+              .build());
+
+      if (finalGrade != null) {
+        weightedSum += finalGrade * course.getCredit();
+        gradedCredits += course.getCredit();
+      }
+    }
+
+    Double overallAverage = gradedCredits > 0 ? round2(weightedSum / gradedCredits) : null;
+
+    return YearSummary.builder()
+        .studentId(student.getId())
+        .year(year)
+        .courses(courseSummaries)
+        .overallAverage(overallAverage)
+        .totalCredits(totalCredits)
+        .status(status)
+        .build();
+  }
+
+  private List<JExam> findExamsInMemory(
+      Map<UUID, List<JExam>> examsByCourse, JCourse course, Integer calendarYear) {
+    List<JExam> courseExams = examsByCourse.getOrDefault(course.getId(), List.of());
+    if (calendarYear == null) {
+      return courseExams;
+    }
+    return courseExams.stream()
+        .filter(exam -> calendarYear.equals(exam.getAcademicYear()))
+        .toList();
+  }
+
   private boolean isAssignedToCourse(JUser teacher, JCourse course, Integer calendarYear) {
     if (calendarYear != null) {
       return teacherCourseAssignmentRepository.existsByTeacherIdAndCourseIdAndAcademicYear(

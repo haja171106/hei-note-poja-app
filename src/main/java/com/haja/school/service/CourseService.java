@@ -17,6 +17,7 @@ import com.haja.school.repository.model.JUser;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -82,6 +83,19 @@ public class CourseService {
         .toList();
   }
 
+  public List<Student> filterStudentsForCourse(
+      JCourse course, List<JUser> allStudents, Map<UUID, UUID> groupIdByStudent) {
+    int courseStudyYear = (course.getSemesterNumber() + 1) / 2;
+
+    return allStudents.stream()
+        .filter(student -> currentStudyYear(student) == courseStudyYear)
+        .filter(student -> isCourseExpectedForStudent(course, student))
+        .map(student -> toStudentModel(student, groupIdByStudent.get(student.getId())))
+        .sorted(
+            Comparator.comparing(Student::getRef, Comparator.nullsLast(Comparator.naturalOrder())))
+        .toList();
+  }
+
   private void validateCourseAccess(JUser caller, JCourse course) {
     if (caller.getRole() == Role.ADMIN) {
       return;
@@ -127,6 +141,10 @@ public class CourseService {
             .map(history -> history.getGroup().getId())
             .orElse(null);
 
+    return toStudentModel(student, activeGroupId);
+  }
+
+  private Student toStudentModel(JUser student, UUID activeGroupId) {
     return Student.builder()
         .id(student.getId())
         .ref(student.getRef())
