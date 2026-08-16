@@ -137,6 +137,106 @@
         .loading-note { color: var(--text-secondary); padding: 1rem 0; font-size: 0.9rem; }
         .empty-note { color: var(--text-secondary); padding: 1rem 0; text-align: center; font-size: 0.9rem; }
         .error-note { color: #fca5a5; padding: 1rem 0; font-size: 0.9rem; }
+
+        th .sub { color: var(--text-secondary); font-size: 0.7rem; }
+
+        .grade-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1.25rem;
+        }
+
+        .grade-card .course-meta { margin-bottom: 0.5rem; }
+
+        .table-wrap { overflow-x: auto; margin-top: 1rem; }
+
+        .grade-cell { display: flex; align-items: center; gap: 0.6rem; min-width: 110px; }
+        .grade-value { font-weight: 600; }
+        .grade-missing { color: var(--text-secondary); font-style: italic; font-size: 0.8rem; }
+
+        .grade-btn {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .grade-btn:hover {
+            background: rgba(16, 185, 129, 0.3);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .grade-editor { display: flex; flex-direction: column; gap: 0.45rem; min-width: 160px; }
+
+        .grade-input,
+        .reason-select,
+        .reason-custom {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.45rem 0.6rem;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        .grade-input:focus,
+        .reason-select:focus,
+        .reason-custom:focus { border-color: var(--primary); }
+
+        .reason-custom[readonly] { color: var(--text-secondary); font-style: italic; }
+
+        .editor-actions { display: flex; gap: 0.5rem; }
+
+        .btn-save,
+        .btn-cancel {
+            flex: 1;
+            border: none;
+            border-radius: 8px;
+            padding: 0.45rem 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-save { background: var(--primary); color: #ffffff; }
+        .btn-save:hover { filter: brightness(1.1); }
+        .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .btn-cancel { background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); }
+        .btn-cancel:hover { background: rgba(255, 255, 255, 0.15); color: #ffffff; }
+
+        .toast {
+            position: fixed;
+            top: 1.25rem;
+            right: 1.25rem;
+            z-index: 1000;
+            padding: 0.85rem 1.25rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.25s ease;
+            pointer-events: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background: rgba(16, 185, 129, 0.95); color: #ffffff; }
+        .toast-error { background: rgba(239, 68, 68, 0.95); color: #ffffff; }
     </style>
 </head>
 <body>
@@ -165,13 +265,15 @@
 
         <div class="section">
             <div class="section-head">
-                <h2>📊 Student Averages</h2>
+                <h2>📝 Grades &amp; Averages</h2>
             </div>
             <div id="averages-section">
-                <div class="loading-note">Loading student averages...</div>
+                <div class="loading-note">Loading student grades...</div>
             </div>
         </div>
     </main>
+
+    <div id="toast" class="toast"></div>
 
     <script th:inline="javascript">
         const TEACHER_ID = /*[[${user != null ? user.id : ''}]]*/ '';
@@ -216,61 +318,222 @@
             }).join('') + '</div>';
         }
 
-        async function loadStudentAveragesForCourse(course) {
-            const studyYear = Math.ceil(course.semesterNumber / 2);
-            const students = await fetchJson('/courses/' + course.id + '/students');
-            const rows = [];
+        const PENCIL_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
 
-            for (const student of students) {
-                let average = null;
-                try {
-                    const summary = await fetchJson('/students/' + student.id + '/years/' + studyYear + '/summary');
-                    average = summary.overallAverage;
-                } catch (error) {
-                    average = null;
-                }
-                rows.push(
-                    '<tr>' +
-                        '<td>' + escapeHtml(student.ref) + '<div class="sub">' +
-                            escapeHtml(student.firstname) + ' ' + escapeHtml(student.name) + '</div></td>' +
-                        '<td>' + formatAverage(average) + '</td>' +
-                    '</tr>');
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + (type === 'error' ? 'toast-error' : 'toast-success');
+            clearTimeout(showToast._timer);
+            showToast._timer = setTimeout(function () {
+                toast.className = 'toast';
+            }, 3000);
+        }
+
+        function renderGradeCell(examId, studentId, studentRef, value) {
+            const hasGrade = value !== null && value !== undefined;
+            return '<div class="grade-cell" data-exam-id="' + examId + '" data-student-id="' + studentId +
+                '" data-student-ref="' + escapeHtml(studentRef) + '" data-value="' + (hasGrade ? value : '') + '">' +
+                (hasGrade
+                    ? '<span class="grade-value">' + value.toFixed(2) + '</span>'
+                    : '<span class="grade-missing">—</span>') +
+                '<button type="button" class="grade-btn" title="' + (hasGrade ? 'Edit grade' : 'Add grade') +
+                    '" onclick="openGradeEditor(this)">' + PENCIL_SVG + '</button>' +
+            '</div>';
+        }
+
+        function openGradeEditor(btn) {
+            const cell = btn.closest('.grade-cell');
+            const hasGrade = cell.dataset.value !== '';
+            const currentValue = hasGrade ? parseFloat(cell.dataset.value) : null;
+
+            const reasonHtml = hasGrade
+                ? '<select class="reason-select" onchange="toggleReasonInput(this)">' +
+                    '<option value="">Select a reason...</option>' +
+                    '<option value="réclamation">Réclamation</option>' +
+                    '<option value="erreur de transcription">Erreur de transcription</option>' +
+                    '<option value="autre motif">Autre motif</option>' +
+                  '</select>' +
+                  '<input type="text" class="reason-custom" placeholder="Specify the reason..." style="display:none;">'
+                : '<input type="text" class="reason-custom" value="saisie initiale" readonly title="Initial grade entry">';
+
+            cell.innerHTML = '<div class="grade-editor">' +
+                '<input type="number" class="grade-input" min="0" max="20" step="0.01" value="' +
+                    (hasGrade ? currentValue : '') + '" placeholder="0 - 20">' +
+                reasonHtml +
+                '<div class="editor-actions">' +
+                    '<button type="button" class="btn-save" onclick="saveGrade(this)">Save</button>' +
+                    '<button type="button" class="btn-cancel" onclick="cancelGradeEdit(this)">Cancel</button>' +
+                '</div>' +
+            '</div>';
+            const input = cell.querySelector('.grade-input');
+            if (input) {
+                input.focus();
+            }
+        }
+
+        function toggleReasonInput(select) {
+            const editor = select.closest('.grade-editor');
+            const custom = editor.querySelector('.reason-custom');
+            custom.style.display = (select.value === 'autre motif') ? 'block' : 'none';
+            if (select.value !== 'autre motif') {
+                custom.value = '';
+            }
+        }
+
+        async function saveGrade(btn) {
+            const cell = btn.closest('.grade-cell');
+            const editor = cell.querySelector('.grade-editor');
+            const input = editor.querySelector('.grade-input');
+            const value = parseFloat(input.value);
+            if (isNaN(value) || value < 0 || value > 20) {
+                showToast('Grade must be between 0 and 20.', 'error');
+                return;
             }
 
-            return '<div class="course-card">' +
+            let reason;
+            const reasonSelect = editor.querySelector('.reason-select');
+            if (reasonSelect) {
+                if (reasonSelect.value === 'autre motif') {
+                    reason = editor.querySelector('.reason-custom').value.trim();
+                } else {
+                    reason = reasonSelect.value;
+                }
+            } else {
+                reason = editor.querySelector('.reason-custom').value.trim();
+            }
+            if (!reason) {
+                showToast('Please select or enter a reason.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            try {
+                const response = await fetch('/exams/' + cell.dataset.examId + '/grades/' + cell.dataset.studentId, {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: value, reason: reason })
+                });
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.message || 'Failed to save grade (status ' + response.status + ')');
+                }
+                const saved = await response.json();
+                const row = cell.closest('tr');
+                cell.innerHTML = renderGradeCell(cell.dataset.examId, cell.dataset.studentId, cell.dataset.studentRef, saved.value);
+                showToast('Grade saved for ' + cell.dataset.studentRef + '.', 'success');
+                refreshRowAverage(row);
+            } catch (error) {
+                btn.disabled = false;
+                btn.textContent = 'Save';
+                showToast(error.message || 'Failed to save grade.', 'error');
+            }
+        }
+
+        function cancelGradeEdit(btn) {
+            const cell = btn.closest('.grade-cell');
+            cell.innerHTML = renderGradeCell(
+                cell.dataset.examId,
+                cell.dataset.studentId,
+                cell.dataset.studentRef,
+                cell.dataset.value === '' ? null : parseFloat(cell.dataset.value));
+        }
+
+        async function refreshRowAverage(row) {
+            const avgCell = row.querySelector('.avg-cell');
+            if (!avgCell) {
+                return;
+            }
+            const studentId = row.querySelector('.grade-cell').dataset.studentId;
+            const courseCard = row.closest('.course-card');
+            const studyYear = courseCard ? parseInt(courseCard.dataset.studyYear, 10) : 1;
+            try {
+                const summary = await fetchJson('/students/' + studentId + '/years/' + studyYear + '/summary');
+                avgCell.innerHTML = formatAverage(summary.overallAverage);
+            } catch {
+            }
+        }
+
+        async function loadGradeBoardForCourse(course) {
+            const studyYear = Math.ceil(course.semesterNumber / 2);
+            const students = await fetchJson('/courses/' + course.id + '/students');
+            const exams = await fetchJson('/courses/' + course.id + '/exams');
+
+            const gradesByExam = {};
+            for (const exam of exams) {
+                gradesByExam[exam.id] = {};
+                try {
+                    const grades = await fetchJson('/exams/' + exam.id + '/grades');
+                    grades.forEach(g => { gradesByExam[exam.id][g.studentId] = g.value; });
+                } catch {
+                }
+            }
+
+            const averages = {};
+            for (const student of students) {
+                try {
+                    const summary = await fetchJson('/students/' + student.id + '/years/' + studyYear + '/summary');
+                    averages[student.id] = summary.overallAverage;
+                } catch (error) {
+                    averages[student.id] = null;
+                }
+            }
+
+            const examHeaders = exams.map(exam =>
+                '<th>' + escapeHtml(exam.label) + '<div class="sub">coef ' + exam.coefficient + '</div></th>').join('');
+
+            const rows = students.map(student => {
+                const examCells = exams.map(exam => {
+                    const value = gradesByExam[exam.id][student.id];
+                    return '<td>' + renderGradeCell(exam.id, student.id, student.ref, value === undefined ? null : value) + '</td>';
+                }).join('');
+                return '<tr>' +
+                    '<td>' + escapeHtml(student.ref) + '<div class="sub">' +
+                        escapeHtml(student.firstname) + ' ' + escapeHtml(student.name) + '</div></td>' +
+                    examCells +
+                    '<td class="avg-cell">' + formatAverage(averages[student.id]) + '</td>' +
+                '</tr>';
+            }).join('');
+
+            const hasExams = exams.length > 0;
+            return '<div class="course-card" data-study-year="' + studyYear + '">' +
                 '<h3>' + escapeHtml(course.ref) + ' &mdash; ' + escapeHtml(course.title) + '</h3>' +
                 '<div class="course-meta">Credits: ' + (course.credit != null ? course.credit : '—') +
                     ' &bull; Year ' + studyYear + '</div>' +
-                (rows.length === 0
+                (students.length === 0
                     ? '<div class="empty-note">No students for this course.</div>'
-                    : '<table>' +
-                        '<thead><tr><th>Student</th><th>Overall Average</th></tr></thead>' +
-                        '<tbody>' + rows.join('') + '</tbody>' +
-                      '</table>') +
+                    : hasExams
+                        ? '<div class="table-wrap"><table>' +
+                            '<thead><tr><th>Student</th>' + examHeaders + '<th>Overall Average</th></tr></thead>' +
+                            '<tbody>' + rows + '</tbody>' +
+                          '</table></div>'
+                        : '<div class="empty-note">No exams defined for this course yet.</div>') +
             '</div>';
         }
 
         async function loadTeacherDashboard() {
+            const averagesSection = document.getElementById('averages-section');
             try {
                 const courses = await fetchJson('/teachers/' + TEACHER_ID + '/courses');
                 renderCourses(courses);
 
-                const averagesSection = document.getElementById('averages-section');
                 if (!courses || courses.length === 0) {
-                    averagesSection.innerHTML = '<div class="empty-note">No assigned courses to compute averages for.</div>';
+                    averagesSection.innerHTML = '<div class="empty-note">No assigned courses to manage grades for.</div>';
                     return;
                 }
 
-                averagesSection.innerHTML = '<div class="loading-note">Loading student averages...</div>';
+                averagesSection.innerHTML = '<div class="loading-note">Loading student grades...</div>';
                 const cards = [];
                 for (const course of courses) {
-                    cards.push(await loadStudentAveragesForCourse(course));
+                    cards.push(await loadGradeBoardForCourse(course));
                 }
-                averagesSection.innerHTML = '<div class="course-list">' + cards.join('') + '</div>';
+                averagesSection.innerHTML = '<div class="grade-list">' + cards.join('') + '</div>';
             } catch (error) {
                 document.getElementById('courses-section').innerHTML =
                     '<div class="error-note">Failed to load your courses. Please try again later.</div>';
-                document.getElementById('averages-section').innerHTML = '';
+                averagesSection.innerHTML = '';
             }
         }
 
