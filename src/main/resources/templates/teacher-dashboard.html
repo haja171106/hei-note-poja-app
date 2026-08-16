@@ -452,8 +452,7 @@
             try {
                 const summary = await fetchJson('/students/' + studentId + '/years/' + studyYear + '/summary');
                 avgCell.innerHTML = formatAverage(summary.overallAverage);
-            } catch (error) {
-                // keep previous value
+            } catch {
             }
         }
 
@@ -468,8 +467,7 @@
                 try {
                     const grades = await fetchJson('/exams/' + exam.id + '/grades');
                     grades.forEach(g => { gradesByExam[exam.id][g.studentId] = g.value; });
-                } catch (error) {
-                    // exam has no grades yet
+                } catch {
                 }
             }
 
