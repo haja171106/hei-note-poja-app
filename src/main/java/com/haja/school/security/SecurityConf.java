@@ -47,7 +47,8 @@ public class SecurityConf {
                         "/js/**",
                         "/images/**",
                         "/favicon.ico",
-                        "/error")
+                        "/error",
+                        "/mock-s3/**")
                     .permitAll()
                     .requestMatchers("/ui/admin/**")
                     .hasRole("ADMIN")
