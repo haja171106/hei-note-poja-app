@@ -264,13 +264,16 @@ class StudentControllerTest {
             .message(
                 "Transcript request accepted. The document will be sent to your email shortly.")
             .build();
-    when(transcriptService.requestTranscript(eq(studentId), anyInt(), anyString())).thenReturn(ack);
+    when(transcriptService.requestTranscript(
+            eq(studentId), anyInt(), eq("recipient@example.com"), anyString()))
+        .thenReturn(ack);
 
     mockMvc
         .perform(
             post("/students/" + studentId + "/transcript")
                 .with(mockUser("admin@admin.com", "ADMIN"))
-                .param("academicYear", "2025"))
+                .param("academicYear", "2025")
+                .param("recipientEmail", "recipient@example.com"))
         .andExpect(status().isAccepted())
         .andExpect(jsonPath("$.message").value(ack.getMessage()));
   }

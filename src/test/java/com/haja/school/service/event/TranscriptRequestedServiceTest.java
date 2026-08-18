@@ -137,6 +137,18 @@ class TranscriptRequestedServiceTest {
   }
 
   @Test
+  void accept_sendsEmailToRequestedRecipient() throws Exception {
+    stubHappyPath(student, yearSummary, event);
+    event.setRecipientEmail("recipient@example.com");
+
+    transcriptRequestedService.accept(event);
+
+    ArgumentCaptor<Email> emailCaptor = ArgumentCaptor.forClass(Email.class);
+    verify(mailer).accept(emailCaptor.capture());
+    assert emailCaptor.getValue().to().toString().contains("recipient@example.com");
+  }
+
+  @Test
   void accept_sendsEmailWithDownloadLink() throws Exception {
     stubHappyPath(student, yearSummary, event);
 

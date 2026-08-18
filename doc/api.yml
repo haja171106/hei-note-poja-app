@@ -458,6 +458,11 @@ paths:
         - in: query
           name: academicYear
           schema: { type: integer }
+        - in: query
+          name: recipientEmail
+          required: false
+          schema: { type: string, format: email }
+          description: Optional destination email. If omitted, the student's institutional email is used.
       responses:
         "202":
           description: Generation request accepted (asynchronous processing)

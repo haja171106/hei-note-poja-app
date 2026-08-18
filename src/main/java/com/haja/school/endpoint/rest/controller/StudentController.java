@@ -96,8 +96,11 @@ public class StudentController {
   public ResponseEntity<TranscriptRequestAck> requestTranscript(
       @PathVariable UUID id,
       @RequestParam(required = false) Integer academicYear,
+      @RequestParam(required = false) String recipientEmail,
       Authentication authentication) {
     return ResponseEntity.accepted()
-        .body(transcriptService.requestTranscript(id, academicYear, authentication.getName()));
+        .body(
+            transcriptService.requestTranscript(
+                id, academicYear, recipientEmail, authentication.getName()));
   }
 }

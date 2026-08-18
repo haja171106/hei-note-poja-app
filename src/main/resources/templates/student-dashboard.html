@@ -128,6 +128,33 @@
             font-size: 0.875rem;
         }
 
+        .transcript-panel {
+            margin-top: 1.25rem;
+            padding: 1rem;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 12px;
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .transcript-panel p { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.35rem; }
+        .transcript-form { display: none; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; align-items: end; }
+        .transcript-form.visible { display: flex; }
+        .transcript-field { flex: 1 1 260px; }
+        .transcript-field label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.35rem; }
+        .transcript-field input {
+            width: 100%; padding: 0.65rem 0.75rem; border-radius: 8px;
+            background: rgba(15, 23, 42, 0.8); color: var(--text-primary); border: 1px solid var(--border);
+        }
+        .primary-btn, .secondary-btn {
+            padding: 0.65rem 0.9rem; border-radius: 8px; cursor: pointer; font-weight: 600; border: 1px solid transparent;
+        }
+        .primary-btn { background: var(--primary); color: white; }
+        .primary-btn:disabled { opacity: 0.65; cursor: wait; }
+        .secondary-btn { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+        .transcript-feedback { margin-top: 0.75rem; font-size: 0.875rem; color: var(--text-secondary); }
+        .transcript-feedback.error { color: #fca5a5; }
+        .transcript-feedback.success { color: #86efac; }
+
         .average-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -241,6 +268,25 @@
             <div id="grades-section">
                 <div class="loading-note">Loading your grades...</div>
             </div>
+
+            <div class="transcript-panel">
+                <div class="section-head">
+                    <div>
+                        <h2>Recevoir mes notes</h2>
+                        <p>Un lien sécurisé pour télécharger votre relevé PDF vous sera envoyé par e-mail.</p>
+                    </div>
+                    <button type="button" class="primary-btn" onclick="openTranscriptForm()">Recevoir mes notes</button>
+                </div>
+                <div id="transcript-form" class="transcript-form">
+                    <div class="transcript-field">
+                        <label for="recipient-email">E-mail destinataire (facultatif)</label>
+                        <input id="recipient-email" type="email" placeholder="Laisser vide pour utiliser votre e-mail institutionnel">
+                    </div>
+                    <button id="send-transcript-btn" type="button" class="primary-btn" onclick="requestTranscript()">Envoyer le lien</button>
+                    <button type="button" class="secondary-btn" onclick="closeTranscriptForm()">Annuler</button>
+                </div>
+                <div id="transcript-feedback" class="transcript-feedback" role="status"></div>
+            </div>
         </div>
     </main>
 
@@ -350,6 +396,61 @@
 
         function onYearChange() {
             loadStudentData();
+        }
+
+        function openTranscriptForm() {
+            document.getElementById('transcript-form').classList.add('visible');
+            document.getElementById('recipient-email').focus();
+        }
+
+        function closeTranscriptForm() {
+            document.getElementById('transcript-form').classList.remove('visible');
+        }
+
+        function setTranscriptFeedback(message, type) {
+            const feedback = document.getElementById('transcript-feedback');
+            feedback.textContent = message;
+            feedback.className = 'transcript-feedback' + (type ? ' ' + type : '');
+        }
+
+        async function requestTranscript() {
+            const recipientInput = document.getElementById('recipient-email');
+            const recipientEmail = recipientInput.value.trim();
+            const academicYear = academicYearForStudyYear(
+                parseInt(document.getElementById('year-select').value, 10));
+
+            if (academicYear === null) {
+                setTranscriptFeedback("L'année académique est indisponible. Rechargez la page.", 'error');
+                return;
+            }
+            if (recipientEmail && !recipientInput.checkValidity()) {
+                setTranscriptFeedback('Saisissez une adresse e-mail destinataire valide.', 'error');
+                return;
+            }
+
+            const sendButton = document.getElementById('send-transcript-btn');
+            sendButton.disabled = true;
+            setTranscriptFeedback('Votre relevé est en cours de préparation…');
+
+            try {
+                let url = '/students/' + STUDENT_ID + '/transcript?academicYear=' + encodeURIComponent(academicYear);
+                if (recipientEmail) {
+                    url += '&recipientEmail=' + encodeURIComponent(recipientEmail);
+                }
+                const response = await fetch(url, { method: 'POST', credentials: 'same-origin' });
+                if (!response.ok) {
+                    throw new Error('Request failed with status ' + response.status);
+                }
+                const result = await response.json();
+                setTranscriptFeedback(
+                    result.message || 'Votre demande a été acceptée. Vérifiez votre boîte e-mail dans quelques instants.',
+                    'success');
+                closeTranscriptForm();
+            } catch (error) {
+                setTranscriptFeedback('Impossible de demander le relevé. Réessayez plus tard.', 'error');
+            } finally {
+                sendButton.disabled = false;
+            }
         }
 
         function initYearSelect() {

@@ -98,6 +98,35 @@ class TranscriptServiceTest {
     assertEquals(2023, event.getAcademicYear());
     assertEquals(ReportStatus.COMPLETE, event.getStatus());
     assertEquals("STD00001", event.getStudentRef());
+    assertEquals("hei.jean@student.com", event.getRecipientEmail());
+  }
+
+  @Test
+  void requestTranscript_withCustomRecipient_addsRecipientToEvent() {
+    YearSummary summary =
+        YearSummary.builder()
+            .studentId(studentId)
+            .year(1)
+            .courses(List.of())
+            .status(ReportStatus.COMPLETE)
+            .build();
+    when(userRepository.findByEmail("hei.jean@student.com")).thenReturn(Optional.of(student));
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(gradeCalculationService.computeYearSummary(studentId, 1)).thenReturn(summary);
+    when(transcriptRequestRepository.save(any(JTranscriptRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              JTranscriptRequest request = invocation.getArgument(0);
+              request.setId(UUID.randomUUID());
+              return request;
+            });
+
+    transcriptService.requestTranscript(
+        studentId, 2023, "recipient@example.com", "hei.jean@student.com");
+
+    ArgumentCaptor<List<TranscriptRequested>> captor = ArgumentCaptor.forClass(List.class);
+    verify(eventProducer).accept(captor.capture());
+    assertEquals("recipient@example.com", captor.getValue().get(0).getRecipientEmail());
   }
 
   @Test
