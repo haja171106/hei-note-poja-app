@@ -134,6 +134,20 @@ public class GraduateService {
     return graduates;
   }
 
+  private void setCellValue(Cell cell, Object value) {
+    if (value == null) {
+      cell.setCellValue("");
+      return;
+    }
+
+    if (value instanceof Number number) {
+      cell.setCellValue(number.doubleValue());
+      return;
+    }
+
+    cell.setCellValue(String.valueOf(value));
+  }
+
   private byte[] buildExcel(List<Graduate> graduates, String sheetTitle) {
     try (XSSFWorkbook workbook = new XSSFWorkbook();
         ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -159,11 +173,11 @@ public class GraduateService {
       int rowIdx = 1;
       for (Graduate graduate : graduates) {
         Row row = sheet.createRow(rowIdx++);
-        row.createCell(0).setCellValue(graduate.getRank());
-        row.createCell(1).setCellValue(graduate.getStudentRef());
-        row.createCell(2).setCellValue(graduate.getName());
-        row.createCell(3).setCellValue(graduate.getFirstname());
-        row.createCell(4).setCellValue(graduate.getOverallAverage());
+        setCellValue(row.createCell(0), graduate.getRank());
+        setCellValue(row.createCell(1), graduate.getStudentRef());
+        setCellValue(row.createCell(2), graduate.getName());
+        setCellValue(row.createCell(3), graduate.getFirstname());
+        setCellValue(row.createCell(4), graduate.getOverallAverage());
       }
 
       for (int i = 0; i < columns.length; i++) {
