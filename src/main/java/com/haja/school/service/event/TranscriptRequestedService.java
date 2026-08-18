@@ -15,6 +15,7 @@ import java.util.function.Consumer;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @AllArgsConstructor
@@ -28,6 +29,7 @@ public class TranscriptRequestedService implements Consumer<TranscriptRequested>
   private final JUserRepository userRepository;
 
   @Override
+  @Transactional(readOnly = true)
   public void accept(TranscriptRequested event) {
     try {
       JUser student =
