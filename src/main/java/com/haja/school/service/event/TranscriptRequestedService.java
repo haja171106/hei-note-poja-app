@@ -32,7 +32,7 @@ public class TranscriptRequestedService implements Consumer<TranscriptRequested>
     try {
       JUser student =
           userRepository
-              .findById(event.getStudentId())
+              .findWithCohortById(event.getStudentId())
               .orElseThrow(
                   () -> new IllegalStateException("Student not found: " + event.getStudentId()));
 
