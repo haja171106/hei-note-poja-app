@@ -87,7 +87,7 @@ class TranscriptRequestedServiceTest {
   }
 
   private void stubHappyPath(JUser s, YearSummary summary, TranscriptRequested e) throws Exception {
-    when(userRepository.findById(studentId)).thenReturn(Optional.of(s));
+    when(userRepository.findWithCohortById(studentId)).thenReturn(Optional.of(s));
     when(gradeCalculationService.computeYearSummary(
             studentId, e.getAcademicYear() - s.getCohort().getEntryYear() + 1))
         .thenReturn(summary);
@@ -100,12 +100,12 @@ class TranscriptRequestedServiceTest {
 
   @Test
   void accept_studentNotFound_failsSoTheMessageCanBeRetried() throws Exception {
-    when(userRepository.findById(studentId)).thenReturn(Optional.empty());
+    when(userRepository.findWithCohortById(studentId)).thenReturn(Optional.empty());
 
     Assertions.assertThrows(
         IllegalStateException.class, () -> transcriptRequestedService.accept(event));
 
-    verify(userRepository).findById(studentId);
+    verify(userRepository).findWithCohortById(studentId);
     verify(transcriptPdfGenerator, never()).generate(any(), anyInt(), any());
     verify(transcriptBucketService, never()).upload(any(), anyString());
     verify(mailer, never()).accept(any());
@@ -117,7 +117,7 @@ class TranscriptRequestedServiceTest {
 
     transcriptRequestedService.accept(event);
 
-    verify(userRepository).findById(studentId);
+    verify(userRepository).findWithCohortById(studentId);
     verify(gradeCalculationService).computeYearSummary(studentId, 2);
     verify(transcriptPdfGenerator).generate(student, 2024, yearSummary);
     verify(transcriptBucketService).upload(any(byte[].class), anyString());
@@ -207,12 +207,13 @@ class TranscriptRequestedServiceTest {
             .email("hajaravahatra@gmail.com")
             .cohort(cohortNoEntryYear)
             .build();
-    when(userRepository.findById(studentId)).thenReturn(Optional.of(studentWithNullEntryYear));
+    when(userRepository.findWithCohortById(studentId))
+        .thenReturn(Optional.of(studentWithNullEntryYear));
 
     Assertions.assertThrows(
         IllegalStateException.class, () -> transcriptRequestedService.accept(event));
 
-    verify(userRepository).findById(studentId);
+    verify(userRepository).findWithCohortById(studentId);
     verify(gradeCalculationService, never()).computeYearSummary(any(), anyInt());
     verify(transcriptBucketService, never()).upload(any(), anyString());
   }
@@ -228,12 +229,13 @@ class TranscriptRequestedServiceTest {
             .email("hajaravahatra@gmail.com")
             .cohort(null)
             .build();
-    when(userRepository.findById(studentId)).thenReturn(Optional.of(studentWithNullCohort));
+    when(userRepository.findWithCohortById(studentId))
+        .thenReturn(Optional.of(studentWithNullCohort));
 
     Assertions.assertThrows(
         IllegalStateException.class, () -> transcriptRequestedService.accept(event));
 
-    verify(userRepository).findById(studentId);
+    verify(userRepository).findWithCohortById(studentId);
     verify(gradeCalculationService, never()).computeYearSummary(any(), anyInt());
   }
 
