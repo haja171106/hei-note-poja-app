@@ -3,12 +3,14 @@ package com.haja.school.endpoint.rest.controller;
 import com.haja.school.endpoint.rest.model.GroupChangeRequest;
 import com.haja.school.endpoint.rest.model.StudentCreateRequest;
 import com.haja.school.endpoint.rest.model.TrackAssignRequest;
+import com.haja.school.endpoint.rest.model.TranscriptRequestAck;
 import com.haja.school.model.GradeHistory;
 import com.haja.school.model.Student;
 import com.haja.school.model.StudentGrades;
 import com.haja.school.model.YearSummary;
 import com.haja.school.service.GradeCalculationService;
 import com.haja.school.service.StudentService;
+import com.haja.school.service.TranscriptService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +36,7 @@ public class StudentController {
 
   private final StudentService studentService;
   private final GradeCalculationService gradeCalculationService;
+  private final TranscriptService transcriptService;
 
   @PostMapping
   @PreAuthorize("hasRole('ADMIN')")
@@ -86,5 +89,15 @@ public class StudentController {
       @PathVariable UUID id, @PathVariable int year, Authentication authentication) {
     return ResponseEntity.ok(
         gradeCalculationService.getYearSummary(id, year, authentication.getName()));
+  }
+
+  @PostMapping("/{id}/transcript")
+  @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
+  public ResponseEntity<TranscriptRequestAck> requestTranscript(
+      @PathVariable UUID id,
+      @RequestParam(required = false) Integer academicYear,
+      Authentication authentication) {
+    return ResponseEntity.accepted()
+        .body(transcriptService.requestTranscript(id, academicYear, authentication.getName()));
   }
 }

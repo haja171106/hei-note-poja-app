@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body {
+      font-family: 'DejaVu Sans', sans-serif;
+      font-size: 12px;
+      margin: 40px;
+      color: #333;
+    }
+    .header {
+      text-align: center;
+      border-bottom: 2px solid #2c3e50;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 22px;
+      color: #2c3e50;
+      margin: 0;
+    }
+    .header h2 {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin: 5px 0 0 0;
+      font-weight: normal;
+    }
+    .student-info {
+      margin-bottom: 30px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+    }
+    .student-info p {
+      margin: 5px 0;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 11px;
+    }
+    .status-provisional {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .status-complete {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    th, td {
+      border: 1px solid #dee2e6;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th {
+      background-color: #2c3e50;
+      color: white;
+      font-size: 11px;
+    }
+    td {
+      font-size: 11px;
+    }
+    .grade-cell {
+      text-align: center;
+      font-weight: bold;
+    }
+    .summary {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+    }
+    .summary p {
+      margin: 5px 0;
+    }
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 10px;
+      color: #999;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 th:text="'HEI - Haute École d\'Ingénierie'">HEI - Haute École d'Ingénierie</h1>
+    <h2 th:text="'Relevé de Notes - Année Académique ' + ${academicYear}">Relevé de Notes</h2>
+  </div>
+
+  <div class="student-info">
+    <p><strong>Étudiant :</strong>
+      <span th:text="${student.firstname} + ' ' + ${student.name}">Nom Prénom</span>
+    </p>
+    <p><strong>Réf :</strong>
+      <span th:text="${student.ref}">STD00001</span>
+    </p>
+    <p th:if="${student.email}"><strong>Email :</strong>
+      <span th:text="${student.email}">email</span>
+    </p>
+    <p><strong>Statut du relevé :</strong>
+      <span class="status-badge"
+            th:classappend="${summary.status.name() == 'PROVISIONAL'} ? 'status-provisional' : 'status-complete'"
+            th:text="${summary.status.name() == 'PROVISIONAL'} ? 'PROVISOIRE' : 'COMPLET'">
+        STATUT
+      </span>
+    </p>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Réf</th>
+        <th>Matière</th>
+        <th>Crédits</th>
+        <th>Note Finale</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr th:each="course : ${summary.courses}">
+        <td th:text="${course.courseRef}">REF</td>
+        <td th:text="${course.courseTitle}">Title</td>
+        <td th:text="${course.credit}" class="grade-cell">0</td>
+        <td th:text="${course.finalGrade != null} ? ${#numbers.formatDecimal(course.finalGrade, 1, 2)} : '—'"
+            class="grade-cell">—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="summary">
+    <p><strong>Crédits totaux :</strong>
+      <span th:text="${summary.totalCredits}">0</span>
+    </p>
+    <p><strong>Moyenne générale pondérée :</strong>
+      <span th:text="${summary.overallAverage != null} ? ${#numbers.formatDecimal(summary.overallAverage, 1, 2)} + ' / 20' : 'Non calculée'">
+        Non calculée
+      </span>
+    </p>
+  </div>
+
+  <div class="footer">
+    <p th:text="'Document généré le ' + ${generatedAt}">Document généré le ...</p>
+    <p>HEI - Haute École d'Ingénierie</p>
+  </div>
+</body>
+</html>
