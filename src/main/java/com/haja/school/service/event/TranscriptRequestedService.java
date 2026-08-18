@@ -53,10 +53,21 @@ public class TranscriptRequestedService implements Consumer<TranscriptRequested>
 
       String downloadUrl = transcriptBucketService.generatePresignedUrl(bucketKey);
 
-      sendTranscriptEmail(student, event.getAcademicYear(), summary.getStatus(), downloadUrl);
+      sendTranscriptEmail(
+          student,
+          event.getRecipientEmail() == null || event.getRecipientEmail().isBlank()
+              ? student.getEmail()
+              : event.getRecipientEmail(),
+          event.getAcademicYear(),
+          summary.getStatus(),
+          downloadUrl);
 
       log.info(
-          "Transcript {} processed and emailed to {}", event.getRequestId(), student.getEmail());
+          "Transcript {} processed and emailed to {}",
+          event.getRequestId(),
+          event.getRecipientEmail() == null || event.getRecipientEmail().isBlank()
+              ? student.getEmail()
+              : event.getRecipientEmail());
     } catch (Exception e) {
       log.error(
           "Failed to process transcript {} for student {}",
@@ -68,6 +79,7 @@ public class TranscriptRequestedService implements Consumer<TranscriptRequested>
 
   private void sendTranscriptEmail(
       JUser student,
+      String recipientEmail,
       Integer academicYear,
       com.haja.school.model.ReportStatus status,
       String downloadUrl)
@@ -105,7 +117,7 @@ public class TranscriptRequestedService implements Consumer<TranscriptRequested>
 
     Email email =
         new Email(
-            new InternetAddress(student.getEmail()),
+            new InternetAddress(recipientEmail),
             List.of(),
             List.of(),
             subject,

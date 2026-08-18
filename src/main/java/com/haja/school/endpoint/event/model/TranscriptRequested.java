@@ -34,6 +34,9 @@ public class TranscriptRequested extends PojaEvent {
   @JsonProperty("student_email")
   private String studentEmail;
 
+  @JsonProperty("recipient_email")
+  private String recipientEmail;
+
   @JsonProperty("academic_year")
   private Integer academicYear;
 

@@ -9,6 +9,8 @@ import com.haja.school.repository.JTranscriptRequestRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JTranscriptRequest;
 import com.haja.school.repository.model.JUser;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +34,12 @@ public class TranscriptService {
   @Transactional
   public TranscriptRequestAck requestTranscript(
       UUID studentId, Integer academicYear, String callerEmail) {
+    return requestTranscript(studentId, academicYear, null, callerEmail);
+  }
+
+  @Transactional
+  public TranscriptRequestAck requestTranscript(
+      UUID studentId, Integer academicYear, String recipientEmail, String callerEmail) {
     JUser caller =
         userRepository
             .findByEmail(callerEmail)
@@ -48,6 +56,8 @@ public class TranscriptService {
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
 
     validateAccess(caller, student);
+
+    String resolvedRecipientEmail = resolveRecipientEmail(recipientEmail, student.getEmail());
 
     int year = resolveStudyYear(student, academicYear);
 
@@ -71,6 +81,7 @@ public class TranscriptService {
             .studentFirstname(student.getFirstname())
             .studentName(student.getName())
             .studentEmail(student.getEmail())
+            .recipientEmail(resolvedRecipientEmail)
             .academicYear(academicYear)
             .status(summary.getStatus())
             .requestId(saved.getId())
@@ -98,6 +109,20 @@ public class TranscriptService {
     }
     throw new ResponseStatusException(
         HttpStatus.FORBIDDEN, "Access denied: insufficient permissions");
+  }
+
+  private String resolveRecipientEmail(String recipientEmail, String defaultRecipientEmail) {
+    if (recipientEmail == null || recipientEmail.isBlank()) {
+      return defaultRecipientEmail;
+    }
+
+    try {
+      InternetAddress address = new InternetAddress(recipientEmail.trim());
+      address.validate();
+      return address.getAddress();
+    } catch (AddressException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid recipient email");
+    }
   }
 
   private int resolveStudyYear(JUser student, Integer academicYear) {
