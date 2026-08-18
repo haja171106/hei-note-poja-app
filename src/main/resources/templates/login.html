@@ -6,19 +6,24 @@
     <title>HEI - Grade Management Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --bg-gradient-1: #0f172a;
-            --bg-gradient-2: #1e1b4b;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border: rgba(255, 255, 255, 0.1);
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
+            --bg-global: #0A0E27;
+            --bg-global-end: #12172E;
+            --bg-card-right: #131A2E;
+            --bg-input: #0F1424;
+            --border-input: #2A3150;
+            --border-role-inactive: #3A4166;
+            --text-primary: #FFFFFF;
+            --text-secondary: #8B93B0;
+            --text-role-inactive: #B4BAD4;
+            --accent-indigo: #4F46E5;
+            --accent-violet: #7C3AED;
+            --accent-purple: #8B5CF6;
+            --gradient-brand: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            --gradient-btn: linear-gradient(90deg, #4F46E5 0%, #8B5CF6 100%);
             --error: #ef4444;
-            --success: #10b981;
         }
 
         * {
@@ -33,198 +38,374 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at top left, var(--bg-gradient-2), var(--bg-gradient-1));
+            background: radial-gradient(circle at top left, var(--bg-global-end), var(--bg-global));
             color: var(--text-primary);
             overflow-x: hidden;
-        }
-
-        .background-glow {
-            position: absolute;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
-            top: 20%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 0;
-            pointer-events: none;
+            padding: 1rem;
         }
 
         .login-card {
             position: relative;
             z-index: 10;
             width: 100%;
-            max-width: 440px;
-            padding: 2.5rem;
-            background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 900px;
+            min-height: 560px;
+            display: flex;
+            border-radius: 24px;
+            box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6),
+                        0 0 0 1px rgba(255, 255, 255, 0.06);
+            overflow: hidden;
             animation: fadeIn 0.6s ease-out;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        .logo-container {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .logo-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
-            color: white;
-            font-weight: 700;
-            font-size: 1.25rem;
-            padding: 0.5rem 1.25rem;
-            border-radius: 12px;
-            margin-bottom: 0.75rem;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-        }
-
-        .title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: #ffffff;
-        }
-
-        .subtitle {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        .role-chips {
+        /* ── Left column (branding) ── */
+        .branding-column {
+            flex: 0 0 45%;
+            background: var(--gradient-brand);
             display: flex;
-            gap: 0.5rem;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 48px 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .branding-column::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 80%, rgba(255,255,255,0.06) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .branding-badge {
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            padding: 10px 22px;
+            border-radius: 50px;
+            letter-spacing: 1.5px;
+            box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4),
+                        inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        .branding-bottom {
+            position: relative;
+            z-index: 1;
+        }
+
+        .branding-bottom h2 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .branding-bottom p {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.65);
+            line-height: 1.5;
+        }
+
+        .branding-dots {
+            position: absolute;
+            bottom: 120px;
+            right: 30px;
+            display: grid;
+            grid-template-columns: repeat(5, 8px);
+            gap: 14px;
+            opacity: 0.15;
+        }
+
+        .branding-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        /* ── Right column (form) ── */
+        .form-column {
+            flex: 1;
+            background: var(--bg-card-right);
+            padding: 48px 44px;
+            display: flex;
+            flex-direction: column;
             justify-content: center;
-            margin-top: 1rem;
+        }
+
+        .form-column h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .form-column .form-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        /* ── Role selector ── */
+        .role-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 28px;
         }
 
         .role-chip {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.6rem;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-secondary);
+            flex: 1;
+            text-align: center;
+            font-size: 0.82rem;
+            font-weight: 500;
+            padding: 10px 0;
+            border-radius: 12px;
+            background: transparent;
+            border: 1.5px solid var(--border-role-inactive);
+            color: var(--text-role-inactive);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.25s ease;
+            user-select: none;
         }
 
         .role-chip:hover {
-            border-color: #6366f1;
-            color: #ffffff;
+            border-color: var(--accent-violet);
+            color: var(--text-primary);
+            background: rgba(124, 58, 237, 0.08);
         }
 
+        .role-chip.active,
+        .role-chip:focus-visible {
+            border-color: var(--accent-violet);
+            color: var(--text-primary);
+            background: rgba(124, 58, 237, 0.15);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+        }
+
+        /* ── Form fields ── */
         .form-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 20px;
         }
 
-        label {
+        .form-group label {
             display: block;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 500;
-            margin-bottom: 0.4rem;
+            margin-bottom: 8px;
             color: #e2e8f0;
         }
 
-        input {
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper input {
             width: 100%;
-            padding: 0.85rem 1rem;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(15, 23, 42, 0.6);
-            color: #ffffff;
-            font-size: 0.95rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border-input);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 0.92rem;
+            transition: border-color 0.25s, box-shadow 0.25s;
         }
 
-        input:focus {
+        .input-wrapper input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        .input-wrapper input:focus {
             outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            border-color: var(--accent-violet);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
         }
 
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s;
+        }
+
+        .toggle-password:hover {
+            color: var(--text-primary);
+        }
+
+        /* ── Submit button ── */
         .btn-submit {
             width: 100%;
-            padding: 0.9rem;
+            padding: 15px;
             border: none;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-radius: 12px;
+            background: var(--gradient-btn);
             color: white;
             font-weight: 600;
             font-size: 1rem;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-top: 1rem;
+            transition: transform 0.2s, box-shadow 0.25s;
+            margin-top: 8px;
+            letter-spacing: 0.3px;
         }
 
         .btn-submit:hover {
             transform: translateY(-1px);
-            box-shadow: 0 10px 20px -10px rgba(79, 70, 229, 0.5);
+            box-shadow: 0 12px 24px -8px rgba(79, 70, 229, 0.55);
         }
 
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        /* ── Error banner ── */
         .alert-error {
-            background: rgba(239, 68, 68, 0.15);
+            background: rgba(239, 68, 68, 0.12);
             border: 1px solid rgba(239, 68, 68, 0.3);
             color: #fca5a5;
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
             display: none;
         }
 
+        /* ── Footer ── */
         .footer-text {
             text-align: center;
-            margin-top: 1.75rem;
-            font-size: 0.75rem;
+            margin-top: 24px;
+            font-size: 0.72rem;
             color: var(--text-secondary);
+            letter-spacing: 0.3px;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+                align-items: stretch;
+            }
+
+            .login-card {
+                flex-direction: column;
+                max-width: 100%;
+                min-height: 100vh;
+                border-radius: 0;
+            }
+
+            .branding-column {
+                flex: 0 0 auto;
+                padding: 32px 28px;
+                min-height: auto;
+            }
+
+            .branding-bottom h2 {
+                font-size: 1.6rem;
+            }
+
+            .branding-dots {
+                display: none;
+            }
+
+            .form-column {
+                padding: 32px 24px;
+                flex: 1;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="background-glow"></div>
 
     <div class="login-card">
-        <div class="logo-container">
-            <div class="logo-badge">HEI NOTES</div>
-            <h1 class="title">Login Portal</h1>
-            <p class="subtitle">Higher Institute of Computer Science &bull; Unified Portal</p>
-            <div class="role-chips">
-                <span class="role-chip" onclick="fillPreset('hei.tokyramarozaka@student.com')">Student</span>
-                <span class="role-chip" onclick="fillPreset('hei.maxime@teacher.com')">Teacher</span>
-                <span class="role-chip" onclick="fillPreset('hei.tokyramarozaka@admin.com')">Admin</span>
+        <!-- Left: branding -->
+        <div class="branding-column">
+            <div class="branding-badge">
+                <div class="logo-pill">HEI NOTES</div>
+            </div>
+
+            <div class="branding-dots">
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+
+            <div class="branding-bottom">
+                <h2>Login<br>Portal</h2>
+                <p>Higher Institute of Computer Science</p>
             </div>
         </div>
 
-        <div id="errorBanner" class="alert-error">
-            Invalid email or password.
-        </div>
+        <!-- Right: form -->
+        <div class="form-column">
+            <h1>LOG IN</h1>
+            <p class="form-subtitle">Sign in to access your dashboard</p>
 
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="email">Institutional Email</label>
-                <input type="email" id="email" required placeholder="e.g. hei.name@student.com / @teacher.com / @admin.com">
+            <div class="role-selector">
+                <span class="role-chip" onclick="fillPreset('hei.tokyramarozaka@student.com')" id="role-student">Student</span>
+                <span class="role-chip" onclick="fillPreset('hei.maxime@teacher.com')" id="role-teacher">Teacher</span>
+                <span class="role-chip" onclick="fillPreset('hei.tokyramarozaka@admin.com')" id="role-admin">Admin</span>
             </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+            <div id="errorBanner" class="alert-error">
+                Invalid email or password.
             </div>
 
-            <button type="submit" class="btn-submit" id="submitBtn">Sign In</button>
-        </form>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Institutional Email</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="email" required placeholder="e.g. hei.name@student.com / @teacher.com">
+                    </div>
+                </div>
 
-        <div class="footer-text">
-            Grade Management &bull; LMD License &bull; Automatic Role Redirection
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+                        <button type="button" class="toggle-password" onclick="togglePassword()" aria-label="Toggle password visibility">
+                            <svg id="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">Sign In</button>
+            </form>
+
+            <div class="footer-text">
+                Grade Management &bull; LMD License &bull; Automatic Role Redirection
+            </div>
         </div>
     </div>
 
@@ -232,6 +413,27 @@
         function fillPreset(email) {
             document.getElementById('email').value = email;
             document.getElementById('password').focus();
+
+            document.querySelectorAll('.role-chip').forEach(c => c.classList.remove('active'));
+            if (email.includes('student')) {
+                document.getElementById('role-student').classList.add('active');
+            } else if (email.includes('teacher')) {
+                document.getElementById('role-teacher').classList.add('active');
+            } else if (email.includes('admin')) {
+                document.getElementById('role-admin').classList.add('active');
+            }
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+            }
         }
 
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
@@ -258,7 +460,7 @@
                 }
 
                 const data = await response.json();
-                
+
                 document.cookie = `jwt_token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('role', data.role);
