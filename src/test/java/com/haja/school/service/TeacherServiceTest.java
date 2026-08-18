@@ -137,6 +137,72 @@ class TeacherServiceTest {
   }
 
   @Test
+  void createTeacher_teacherRefWithInvalidFormat_handledGracefully() {
+    TeacherCreateRequest request =
+        TeacherCreateRequest.builder().name("Brown").firstname("Charlie").build();
+
+    JUser invalidRefTeacher = JUser.builder().ref("TCRXYZ").role(Role.TEACHER).build();
+
+    when(userRepository.findByRefStartingWith("TCR")).thenReturn(List.of(invalidRefTeacher));
+    when(userRepository.existsByEmail("hei.charlie@teacher.com")).thenReturn(false);
+    when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+    when(userRepository.save(any(JUser.class)))
+        .thenAnswer(
+            invocation -> {
+              JUser u = invocation.getArgument(0);
+              u.setId(UUID.randomUUID());
+              return u;
+            });
+
+    Teacher createdTeacher = teacherService.createTeacher(request);
+
+    assertEquals("TCR00001", createdTeacher.getRef());
+    assertEquals("hei.charlie@teacher.com", createdTeacher.getEmail());
+  }
+
+  @Test
+  void createTeacher_emptyFirstname_generatesDefaultEmail() {
+    TeacherCreateRequest request =
+        TeacherCreateRequest.builder().name("Ghost").firstname("").build();
+
+    when(userRepository.findByRefStartingWith("TCR")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByEmail("hei.teacher@teacher.com")).thenReturn(false);
+    when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+    when(userRepository.save(any(JUser.class)))
+        .thenAnswer(
+            invocation -> {
+              JUser u = invocation.getArgument(0);
+              u.setId(UUID.randomUUID());
+              return u;
+            });
+
+    Teacher createdTeacher = teacherService.createTeacher(request);
+
+    assertEquals("hei.teacher@teacher.com", createdTeacher.getEmail());
+  }
+
+  @Test
+  void createTeacher_specialCharactersInName_generatesValidEmail() {
+    TeacherCreateRequest request =
+        TeacherCreateRequest.builder().name("O'Brien").firstname("Jean-Pierre").build();
+
+    when(userRepository.findByRefStartingWith("TCR")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByEmail("hei.jeanpierre@teacher.com")).thenReturn(false);
+    when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+    when(userRepository.save(any(JUser.class)))
+        .thenAnswer(
+            invocation -> {
+              JUser u = invocation.getArgument(0);
+              u.setId(UUID.randomUUID());
+              return u;
+            });
+
+    Teacher createdTeacher = teacherService.createTeacher(request);
+
+    assertEquals("hei.jeanpierre@teacher.com", createdTeacher.getEmail());
+  }
+
+  @Test
   void getCoursesByTeacher_admin_success() {
     UUID teacherId = UUID.randomUUID();
     JUser admin =

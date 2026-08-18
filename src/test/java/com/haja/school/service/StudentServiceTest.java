@@ -18,6 +18,7 @@ import com.haja.school.repository.JStudentGroupHistoryRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCohort;
 import com.haja.school.repository.model.JGroup;
+import com.haja.school.repository.model.JStudentGroupHistory;
 import com.haja.school.repository.model.JUser;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -183,6 +184,79 @@ class StudentServiceTest {
   }
 
   @Test
+  void createStudent_noGroupsInCohort_noGroupAssigned() {
+    StudentCreateRequest request =
+        StudentCreateRequest.builder().name("Solo").firstname("Alone").cohortId(cohortId).build();
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
+    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByEmail("hei.alone@student.com")).thenReturn(false);
+    when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+    when(groupRepository.findByCohortId(cohortId)).thenReturn(Collections.emptyList());
+    when(userRepository.save(any(JUser.class)))
+        .thenAnswer(
+            invocation -> {
+              JUser u = invocation.getArgument(0);
+              u.setId(UUID.randomUUID());
+              return u;
+            });
+
+    Student createdStudent = studentService.createStudent(request);
+
+    assertNotNull(createdStudent);
+    assertNull(createdStudent.getGroupId());
+    verify(studentGroupHistoryRepository, never()).save(any());
+  }
+
+  @Test
+  void createStudent_specialCharactersInName_generatesValidEmail() {
+    StudentCreateRequest request =
+        StudentCreateRequest.builder()
+            .name("O'Connor")
+            .firstname("Jean-Pierre")
+            .cohortId(cohortId)
+            .build();
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
+    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByEmail("hei.jeanpierre@student.com")).thenReturn(false);
+    when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+    when(userRepository.save(any(JUser.class)))
+        .thenAnswer(
+            invocation -> {
+              JUser u = invocation.getArgument(0);
+              u.setId(UUID.randomUUID());
+              return u;
+            });
+
+    Student createdStudent = studentService.createStudent(request);
+
+    assertEquals("hei.jeanpierre@student.com", createdStudent.getEmail());
+  }
+
+  @Test
+  void createStudent_emptyFirstname_usesDefaultEmail() {
+    StudentCreateRequest request =
+        StudentCreateRequest.builder().name("Ghost").firstname("").cohortId(cohortId).build();
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
+    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByEmail("hei.student@student.com")).thenReturn(false);
+    when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+    when(userRepository.save(any(JUser.class)))
+        .thenAnswer(
+            invocation -> {
+              JUser u = invocation.getArgument(0);
+              u.setId(UUID.randomUUID());
+              return u;
+            });
+
+    Student createdStudent = studentService.createStudent(request);
+
+    assertEquals("hei.student@student.com", createdStudent.getEmail());
+  }
+
+  @Test
   void deleteStudent_success() {
     UUID studentId = UUID.randomUUID();
     JUser student =
@@ -194,6 +268,44 @@ class StudentServiceTest {
 
     assertEquals(CursusStatus.DROPPED_OUT, student.getCursusStatus());
     verify(userRepository).save(student);
+  }
+
+  @Test
+  void deleteStudent_withActiveGroupHistory_closesEndDate() {
+    UUID studentId = UUID.randomUUID();
+    UUID groupId = UUID.randomUUID();
+    JUser student =
+        JUser.builder().id(studentId).role(Role.STUDENT).cursusStatus(CursusStatus.ACTIVE).build();
+    JGroup group = JGroup.builder().id(groupId).ref("A1").cohort(cohort).build();
+    JStudentGroupHistory history =
+        JStudentGroupHistory.builder()
+            .id(UUID.randomUUID())
+            .student(student)
+            .group(group)
+            .startDate(LocalDate.of(2025, 9, 1))
+            .build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(studentGroupHistoryRepository.findByStudentIdAndEndDateIsNull(studentId))
+        .thenReturn(Optional.of(history));
+
+    studentService.deleteStudent(studentId);
+
+    assertEquals(CursusStatus.DROPPED_OUT, student.getCursusStatus());
+    verify(userRepository).save(student);
+    assertNotNull(history.getEndDate());
+    verify(studentGroupHistoryRepository).save(history);
+  }
+
+  @Test
+  void deleteStudent_studentRoleOnly_throwsNotFound() {
+    UUID teacherId = UUID.randomUUID();
+    JUser teacher =
+        JUser.builder().id(teacherId).role(Role.TEACHER).cursusStatus(CursusStatus.ACTIVE).build();
+
+    when(userRepository.findById(teacherId)).thenReturn(Optional.of(teacher));
+
+    assertThrows(ResponseStatusException.class, () -> studentService.deleteStudent(teacherId));
   }
 
   @Test
@@ -231,6 +343,50 @@ class StudentServiceTest {
     assertNotNull(updatedStudent);
     assertEquals(newGroupId, updatedStudent.getGroupId());
     verify(studentGroupHistoryRepository, times(1)).save(any());
+  }
+
+  @Test
+  void changeStudentGroup_withExistingGroupHistory_closesOldAndCreatesNew() {
+    UUID studentId = UUID.randomUUID();
+    UUID oldGroupId = UUID.randomUUID();
+    UUID newGroupId = UUID.randomUUID();
+    LocalDate effectiveDate = LocalDate.of(2026, 9, 1);
+
+    JUser student =
+        JUser.builder()
+            .id(studentId)
+            .role(Role.STUDENT)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .cohort(cohort)
+            .build();
+
+    JGroup oldGroup = JGroup.builder().id(oldGroupId).cohort(cohort).ref("A1").build();
+    JGroup newGroup = JGroup.builder().id(newGroupId).cohort(cohort).ref("A2").build();
+
+    JStudentGroupHistory existingHistory =
+        JStudentGroupHistory.builder()
+            .id(UUID.randomUUID())
+            .student(student)
+            .group(oldGroup)
+            .startDate(LocalDate.of(2025, 9, 1))
+            .build();
+
+    GroupChangeRequest request =
+        GroupChangeRequest.builder().newGroupId(newGroupId).effectiveDate(effectiveDate).build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+    when(groupRepository.findById(newGroupId)).thenReturn(Optional.of(newGroup));
+    when(studentGroupHistoryRepository.findByStudentIdAndEndDateIsNull(studentId))
+        .thenReturn(Optional.of(existingHistory));
+
+    Student updatedStudent = studentService.changeStudentGroup(studentId, request);
+
+    assertNotNull(updatedStudent);
+    assertEquals(newGroupId, updatedStudent.getGroupId());
+    assertNotNull(existingHistory.getEndDate());
+    assertEquals(effectiveDate, existingHistory.getEndDate());
+    verify(studentGroupHistoryRepository).save(existingHistory);
+    verify(studentGroupHistoryRepository, times(2)).save(any());
   }
 
   @Test
@@ -280,6 +436,47 @@ class StudentServiceTest {
   }
 
   @Test
+  void assignStudentTrack_noCohort_throwsBadRequest() {
+    UUID studentId = UUID.randomUUID();
+
+    JUser student =
+        JUser.builder()
+            .id(studentId)
+            .role(Role.STUDENT)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .cohort(null)
+            .build();
+
+    TrackAssignRequest request = TrackAssignRequest.builder().track(Track.EL).build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+
+    assertThrows(
+        ResponseStatusException.class, () -> studentService.assignStudentTrack(studentId, request));
+  }
+
+  @Test
+  void assignStudentTrack_noEntryYear_throwsBadRequest() {
+    UUID studentId = UUID.randomUUID();
+    JCohort cohortNoEntry = JCohort.builder().id(UUID.randomUUID()).entryYear(null).build();
+
+    JUser student =
+        JUser.builder()
+            .id(studentId)
+            .role(Role.STUDENT)
+            .cursusStatus(CursusStatus.ACTIVE)
+            .cohort(cohortNoEntry)
+            .build();
+
+    TrackAssignRequest request = TrackAssignRequest.builder().track(Track.TN).build();
+
+    when(userRepository.findById(studentId)).thenReturn(Optional.of(student));
+
+    assertThrows(
+        ResponseStatusException.class, () -> studentService.assignStudentTrack(studentId, request));
+  }
+
+  @Test
   void getStudentsByCohort_success() {
     UUID student1Id = UUID.randomUUID();
     UUID student2Id = UUID.randomUUID();
@@ -316,5 +513,15 @@ class StudentServiceTest {
     assertEquals(2, students.size());
     assertEquals("STD00001", students.get(0).getRef());
     assertEquals("STD00002", students.get(1).getRef());
+  }
+
+  @Test
+  void getStudentsByCohort_cohortNotFound_throwsException() {
+    UUID nonexistentCohortId = UUID.randomUUID();
+    when(cohortRepository.findById(nonexistentCohortId)).thenReturn(Optional.empty());
+
+    assertThrows(
+        ResponseStatusException.class,
+        () -> studentService.getStudentsByCohort(nonexistentCohortId));
   }
 }
