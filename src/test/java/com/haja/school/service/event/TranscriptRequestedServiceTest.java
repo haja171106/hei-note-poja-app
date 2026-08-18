@@ -17,6 +17,7 @@ import com.haja.school.service.GradeCalculationService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -98,10 +99,11 @@ class TranscriptRequestedServiceTest {
   }
 
   @Test
-  void accept_studentNotFound_logsErrorAndDoesNotProceed() throws Exception {
+  void accept_studentNotFound_failsSoTheMessageCanBeRetried() throws Exception {
     when(userRepository.findById(studentId)).thenReturn(Optional.empty());
 
-    transcriptRequestedService.accept(event);
+    Assertions.assertThrows(
+        IllegalStateException.class, () -> transcriptRequestedService.accept(event));
 
     verify(userRepository).findById(studentId);
     verify(transcriptPdfGenerator, never()).generate(any(), anyInt(), any());
@@ -149,6 +151,21 @@ class TranscriptRequestedServiceTest {
   }
 
   @Test
+  void accept_mailSendingFailure_isPropagatedSoTheMessageCanBeRetried() throws Exception {
+    stubHappyPath(student, yearSummary, event);
+    doThrow(new RuntimeException("SES rejected the recipient"))
+        .when(mailer)
+        .accept(any(Email.class));
+
+    IllegalStateException exception =
+        Assertions.assertThrows(
+            IllegalStateException.class, () -> transcriptRequestedService.accept(event));
+
+    Assertions.assertEquals("SES rejected the recipient", exception.getCause().getMessage());
+    verify(mailer).accept(any(Email.class));
+  }
+
+  @Test
   void accept_sendsEmailWithDownloadLink() throws Exception {
     stubHappyPath(student, yearSummary, event);
 
@@ -178,7 +195,7 @@ class TranscriptRequestedServiceTest {
   }
 
   @Test
-  void accept_cohortEntryYearNull_logsErrorAndDoesNotProceed() throws Exception {
+  void accept_cohortEntryYearNull_failsSoTheMessageCanBeRetried() throws Exception {
     JCohort cohortNoEntryYear =
         JCohort.builder().id(UUID.randomUUID()).ref("COHORT-NULL").entryYear(null).build();
     JUser studentWithNullEntryYear =
@@ -192,7 +209,8 @@ class TranscriptRequestedServiceTest {
             .build();
     when(userRepository.findById(studentId)).thenReturn(Optional.of(studentWithNullEntryYear));
 
-    transcriptRequestedService.accept(event);
+    Assertions.assertThrows(
+        IllegalStateException.class, () -> transcriptRequestedService.accept(event));
 
     verify(userRepository).findById(studentId);
     verify(gradeCalculationService, never()).computeYearSummary(any(), anyInt());
@@ -200,7 +218,7 @@ class TranscriptRequestedServiceTest {
   }
 
   @Test
-  void accept_nullCohort_logsErrorAndDoesNotProceed() throws Exception {
+  void accept_nullCohort_failsSoTheMessageCanBeRetried() throws Exception {
     JUser studentWithNullCohort =
         JUser.builder()
             .id(studentId)
@@ -212,7 +230,8 @@ class TranscriptRequestedServiceTest {
             .build();
     when(userRepository.findById(studentId)).thenReturn(Optional.of(studentWithNullCohort));
 
-    transcriptRequestedService.accept(event);
+    Assertions.assertThrows(
+        IllegalStateException.class, () -> transcriptRequestedService.accept(event));
 
     verify(userRepository).findById(studentId);
     verify(gradeCalculationService, never()).computeYearSummary(any(), anyInt());
