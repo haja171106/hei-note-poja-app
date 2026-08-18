@@ -160,6 +160,26 @@ class GraduateServiceTest {
   }
 
   @Test
+  void buildExcel_handlesNullValues_withoutThrowing() throws Exception {
+    Graduate graduate =
+        Graduate.builder()
+            .rank(1)
+            .studentRef("STD00001")
+            .name(null)
+            .firstname("John")
+            .overallAverage(null)
+            .build();
+
+    var method = GraduateService.class.getDeclaredMethod("buildExcel", List.class, String.class);
+    method.setAccessible(true);
+
+    byte[] excelBytes = (byte[]) method.invoke(graduateService, List.of(graduate), "Graduates");
+
+    assertNotNull(excelBytes);
+    assertTrue(excelBytes.length > 0);
+  }
+
+  @Test
   void getGraduatesByCohort_studentWithoutCohort_excluded() {
     UUID studentId = UUID.randomUUID();
     JUser studentWithoutCohort =
