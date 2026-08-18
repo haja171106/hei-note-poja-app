@@ -74,6 +74,8 @@ public class TranscriptRequestedService implements Consumer<TranscriptRequested>
           event.getRequestId(),
           event.getStudentId(),
           e);
+      throw new IllegalStateException(
+          "Transcript processing failed for request " + event.getRequestId(), e);
     }
   }
 
