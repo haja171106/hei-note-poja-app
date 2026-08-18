@@ -35,7 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
-.claude/settings.local.json
 
 .aws-sam
 **.toml
