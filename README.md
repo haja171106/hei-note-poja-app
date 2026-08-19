@@ -295,7 +295,7 @@ curl -X GET https://ykc5vnpsxpkahbcvse6pnvowt40mupoe.lambda-url.eu-west-3.on.aws
 Permet à un administrateur de déclencher la génération asynchrone du relevé de notes officiel (bulletin/transcript) au format **PDF** stocké sur **AWS S3** et de l'envoyer par email à **n'importe quelle adresse email** de son choix (ou par défaut à l'email de l'étudiant).
 
 > 💡 **Remarque importante :**
-> Vous pouvez spécifier **n'importe quelle adresse email valide** via le paramètre `recipientEmail` (ex: votre adresse personnelle, une adresse de test, un recruteur, etc.). Le service générera le PDF, le sauvegardera sur AWS S3 et transmettra le lien/document vers cet email.
+> Vous pouvez spécifier **n'importe quelle adresse email valide** via le paramètre `recipientEmail` (ex: votre adresse personnelle, une adresse de test, un recruteur, etc.). Le service générera le PDF, le sauvegardera sur AWS S3 et transmettra le document/lien vers cet email.
 
 - **Méthode** : `POST`
 - **URL** : `/students/{studentId}/transcript`
