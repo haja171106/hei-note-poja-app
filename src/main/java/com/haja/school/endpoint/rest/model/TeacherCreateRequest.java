@@ -24,4 +24,5 @@ public class TeacherCreateRequest {
   private String address;
 
   private LocalDate birthdate;
+  private String password;
 }

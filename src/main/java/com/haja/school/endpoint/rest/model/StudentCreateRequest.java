@@ -31,4 +31,5 @@ public class StudentCreateRequest {
   private UUID cohortId;
 
   private UUID groupId;
+  private String password;
 }

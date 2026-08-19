@@ -686,6 +686,10 @@ components:
           type: string
           format: uuid
           description: Optional — if absent, automatic assignment.
+        password:
+          type: string
+          format: password
+          description: Optional initial password chosen by admin. If omitted, a random password is generated.
 
     Teacher:
       type: object
@@ -708,6 +712,10 @@ components:
         firstname: { type: string }
         address: { type: string }
         birthdate: { type: string, format: date }
+        password:
+          type: string
+          format: password
+          description: Optional initial password chosen by admin. If omitted, a random password is generated.
 
     Course:
       type: object
