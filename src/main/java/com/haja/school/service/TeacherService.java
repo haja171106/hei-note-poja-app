@@ -30,6 +30,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -50,7 +51,10 @@ public class TeacherService {
   public Teacher createTeacher(TeacherCreateRequest request) {
     String ref = generateTeacherRef();
     String email = generateInstitutionalEmail(request.getFirstname());
-    String rawPassword = UUID.randomUUID().toString().substring(0, 8);
+    String rawPassword =
+        StringUtils.hasText(request.getPassword())
+            ? request.getPassword()
+            : UUID.randomUUID().toString().substring(0, 8);
     String encodedPassword = passwordEncoder.encode(rawPassword);
 
     JUser jUser =

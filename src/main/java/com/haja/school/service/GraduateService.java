@@ -90,7 +90,7 @@ public class GraduateService {
       }
 
       Double average = computeGraduationAverage(student);
-      if (average != null && average > 10.0) {
+      if (average != null && average >= 10.0 && allSubjectsPassedFor(student)) {
         graduates.add(
             Graduate.builder()
                 .studentRef(student.getRef())
@@ -102,6 +102,21 @@ public class GraduateService {
     }
 
     return graduates;
+  }
+
+  private boolean allSubjectsPassedFor(JUser student) {
+    for (int year = 1; year <= 3; year++) {
+      YearSummary summary = gradeCalculationService.computeYearSummary(student.getId(), year);
+      if (summary.getCourses() == null) {
+        return false;
+      }
+      for (var course : summary.getCourses()) {
+        if (course.getFinalGrade() == null || course.getFinalGrade() < 10.0) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   private Double computeGraduationAverage(JUser student) {

@@ -3,6 +3,7 @@ package com.haja.school.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.haja.school.model.CourseGradeSummary;
 import com.haja.school.model.CursusStatus;
 import com.haja.school.model.Graduate;
 import com.haja.school.model.YearSummary;
@@ -56,9 +57,9 @@ class GraduateServiceTest {
     when(userRepository.findByCohortId(cohortId))
         .thenReturn(List.of(student1, student2, studentLowGrade, studentDropped));
 
-    stubYearAverages(student1Id, 10.5, 12.0, 12.0);
-    stubYearAverages(student2Id, 16.0, 16.0, 16.0);
-    stubYearAverages(studentLowGradeId, 9.0, 9.0, 9.0);
+    stubYearAveragesAllPassing(student1Id, 10.5, 12.0, 12.0);
+    stubYearAveragesAllPassing(student2Id, 16.0, 16.0, 16.0);
+    stubYearAveragesWithFailing(studentLowGradeId, 9.0, 9.0, 9.0);
 
     List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
 
@@ -82,9 +83,30 @@ class GraduateServiceTest {
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
     when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
 
-    YearSummary year1 = YearSummary.builder().year(1).overallAverage(10.4).totalCredits(10).build();
-    YearSummary year2 = YearSummary.builder().year(2).overallAverage(12.0).totalCredits(60).build();
-    YearSummary year3 = YearSummary.builder().year(3).overallAverage(12.0).totalCredits(60).build();
+    List<CourseGradeSummary> passingCourses =
+        List.of(CourseGradeSummary.builder().finalGrade(12.0).credit(10).build());
+
+    YearSummary year1 =
+        YearSummary.builder()
+            .year(1)
+            .overallAverage(10.4)
+            .totalCredits(10)
+            .courses(passingCourses)
+            .build();
+    YearSummary year2 =
+        YearSummary.builder()
+            .year(2)
+            .overallAverage(12.0)
+            .totalCredits(60)
+            .courses(passingCourses)
+            .build();
+    YearSummary year3 =
+        YearSummary.builder()
+            .year(3)
+            .overallAverage(12.0)
+            .totalCredits(60)
+            .courses(passingCourses)
+            .build();
     when(gradeCalculationService.computeYearSummary(studentId, 1)).thenReturn(year1);
     when(gradeCalculationService.computeYearSummary(studentId, 2)).thenReturn(year2);
     when(gradeCalculationService.computeYearSummary(studentId, 3)).thenReturn(year3);
@@ -118,7 +140,7 @@ class GraduateServiceTest {
     when(userRepository.findByCohortId(cohortId))
         .thenReturn(List.of(activeStudent, graduatedStudent));
 
-    stubYearAverages(graduatedStudentId, 16.0, 16.0, 16.0);
+    stubYearAveragesAllPassing(graduatedStudentId, 16.0, 16.0, 16.0);
 
     List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
 
@@ -135,7 +157,7 @@ class GraduateServiceTest {
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
     when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
 
-    stubYearAverages(studentId, 16.0, 16.0, 16.0);
+    stubYearAveragesAllPassing(studentId, 16.0, 16.0, 16.0);
 
     byte[] excelBytes = graduateService.exportGraduatesExcel(cohortId);
 
@@ -151,7 +173,7 @@ class GraduateServiceTest {
     when(cohortRepository.findAll()).thenReturn(List.of(cohort));
     when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
 
-    stubYearAverages(studentId, 16.0, 16.0, 16.0);
+    stubYearAveragesAllPassing(studentId, 16.0, 16.0, 16.0);
 
     byte[] excelBytes = graduateService.exportAllGraduatesExcel();
 
@@ -216,6 +238,52 @@ class GraduateServiceTest {
     assertTrue(graduates.isEmpty());
   }
 
+  @Test
+  void getGraduatesByCohort_studentWithOneFailingSubject_excluded() {
+    UUID studentId = UUID.randomUUID();
+    JUser student = student(studentId, "STD00005", "Fail", "One", CursusStatus.ACTIVE);
+
+    when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
+    when(userRepository.findByCohortId(cohortId)).thenReturn(List.of(student));
+
+    List<CourseGradeSummary> yearWithFail =
+        List.of(
+            CourseGradeSummary.builder().finalGrade(15.0).credit(10).build(),
+            CourseGradeSummary.builder().finalGrade(8.0).credit(10).build());
+    List<CourseGradeSummary> passingYear =
+        List.of(CourseGradeSummary.builder().finalGrade(12.0).credit(10).build());
+
+    when(gradeCalculationService.computeYearSummary(studentId, 1))
+        .thenReturn(
+            YearSummary.builder()
+                .year(1)
+                .overallAverage(14.0)
+                .totalCredits(60)
+                .courses(yearWithFail)
+                .build());
+    when(gradeCalculationService.computeYearSummary(studentId, 2))
+        .thenReturn(
+            YearSummary.builder()
+                .year(2)
+                .overallAverage(12.0)
+                .totalCredits(60)
+                .courses(passingYear)
+                .build());
+    when(gradeCalculationService.computeYearSummary(studentId, 3))
+        .thenReturn(
+            YearSummary.builder()
+                .year(3)
+                .overallAverage(12.0)
+                .totalCredits(60)
+                .courses(passingYear)
+                .build());
+
+    List<Graduate> graduates = graduateService.getGraduatesByCohort(cohortId);
+
+    assertNotNull(graduates);
+    assertTrue(graduates.isEmpty(), "Student with one subject < 10 must not graduate");
+  }
+
   private JUser student(
       UUID id, String ref, String name, String firstname, CursusStatus cursusStatus) {
     return JUser.builder()
@@ -228,12 +296,74 @@ class GraduateServiceTest {
         .build();
   }
 
-  private void stubYearAverages(UUID studentId, double avg1, double avg2, double avg3) {
+  private void stubYearAveragesAllPassing(UUID studentId, double avg1, double avg2, double avg3) {
     when(gradeCalculationService.computeYearSummary(studentId, 1))
-        .thenReturn(YearSummary.builder().year(1).overallAverage(avg1).totalCredits(60).build());
+        .thenReturn(
+            YearSummary.builder()
+                .year(1)
+                .overallAverage(avg1)
+                .totalCredits(60)
+                .courses(
+                    List.of(
+                        CourseGradeSummary.builder()
+                            .finalGrade(Math.max(avg1, 10.0))
+                            .credit(10)
+                            .build()))
+                .build());
     when(gradeCalculationService.computeYearSummary(studentId, 2))
-        .thenReturn(YearSummary.builder().year(2).overallAverage(avg2).totalCredits(60).build());
+        .thenReturn(
+            YearSummary.builder()
+                .year(2)
+                .overallAverage(avg2)
+                .totalCredits(60)
+                .courses(
+                    List.of(
+                        CourseGradeSummary.builder()
+                            .finalGrade(Math.max(avg2, 10.0))
+                            .credit(10)
+                            .build()))
+                .build());
     when(gradeCalculationService.computeYearSummary(studentId, 3))
-        .thenReturn(YearSummary.builder().year(3).overallAverage(avg3).totalCredits(60).build());
+        .thenReturn(
+            YearSummary.builder()
+                .year(3)
+                .overallAverage(avg3)
+                .totalCredits(60)
+                .courses(
+                    List.of(
+                        CourseGradeSummary.builder()
+                            .finalGrade(Math.max(avg3, 10.0))
+                            .credit(10)
+                            .build()))
+                .build());
+  }
+
+  private void stubYearAveragesWithFailing(UUID studentId, double avg1, double avg2, double avg3) {
+    List<CourseGradeSummary> failingCourses =
+        List.of(CourseGradeSummary.builder().finalGrade(avg1).credit(10).build());
+    when(gradeCalculationService.computeYearSummary(studentId, 1))
+        .thenReturn(
+            YearSummary.builder()
+                .year(1)
+                .overallAverage(avg1)
+                .totalCredits(60)
+                .courses(failingCourses)
+                .build());
+    when(gradeCalculationService.computeYearSummary(studentId, 2))
+        .thenReturn(
+            YearSummary.builder()
+                .year(2)
+                .overallAverage(avg2)
+                .totalCredits(60)
+                .courses(failingCourses)
+                .build());
+    when(gradeCalculationService.computeYearSummary(studentId, 3))
+        .thenReturn(
+            YearSummary.builder()
+                .year(3)
+                .overallAverage(avg3)
+                .totalCredits(60)
+                .courses(failingCourses)
+                .build());
   }
 }
