@@ -290,6 +290,44 @@ curl -X GET https://ykc5vnpsxpkahbcvse6pnvowt40mupoe.lambda-url.eu-west-3.on.aws
 
 ---
 
+### 6. Recevoir les notes d'un étudiant en format PDF par email (Lien AWS S3) — Rôle ADMIN
+
+Permet à un administrateur de déclencher la génération asynchrone du relevé de notes officiel (bulletin/transcript) au format **PDF** stocké sur **AWS S3** et de l'envoyer par email à **n'importe quelle adresse email** de son choix (ou par défaut à l'email de l'étudiant).
+
+> 💡 **Remarque importante :**
+> Vous pouvez spécifier **n'importe quelle adresse email valide** via le paramètre `recipientEmail` (ex: votre adresse personnelle, une adresse de test, un recruteur, etc.). Le service générera le PDF, le sauvegardera sur AWS S3 et transmettra le document/lien vers cet email.
+
+- **Méthode** : `POST`
+- **URL** : `/students/{studentId}/transcript`
+- **Rôle requis** : `ADMIN` (peut demander pour n'importe quel étudiant) ou `STUDENT` (pour son propre relevé)
+- **Paramètres de requête (Query Params)** :
+  - `academicYear` *(Integer, Obligatoire)* : L'année académique ciblée (ex: `2023`).
+  - `recipientEmail` *(String, Optionnel)* : **L'adresse email de destination de votre choix** (ex: `monemail.perso@gmail.com`). Si omis, l'email institutionnel de l'étudiant sera utilisé par défaut.
+
+#### Exemple cURL (Envoi vers une adresse email personnalisée) :
+```bash
+curl -X POST "https://ykc5vnpsxpkahbcvse6pnvowt40mupoe.lambda-url.eu-west-3.on.aws/students/e4b1a111-2222-3333-4444-555566667777/transcript?academicYear=2023&recipientEmail=monemail.perso@gmail.com" \
+  -H "Authorization: Bearer <TOKEN_ADMIN>" \
+  -H "Accept: application/json"
+```
+
+#### Exemple cURL (Envoi par défaut vers l'email de l'étudiant) :
+```bash
+curl -X POST "https://ykc5vnpsxpkahbcvse6pnvowt40mupoe.lambda-url.eu-west-3.on.aws/students/e4b1a111-2222-3333-4444-555566667777/transcript?academicYear=2023" \
+  -H "Authorization: Bearer <TOKEN_ADMIN>" \
+  -H "Accept: application/json"
+```
+
+#### Exemple de Réponse (202 Accepted) :
+```json
+{
+  "requestId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "message": "Transcript request accepted. The document will be sent to your email shortly."
+}
+```
+
+---
+
 ## Tableau Récapitulatif des Endpoints
 
 | Fonctionnalité | Méthode | URL | Rôle(s) Requis |
@@ -301,6 +339,7 @@ curl -X GET https://ykc5vnpsxpkahbcvse6pnvowt40mupoe.lambda-url.eu-west-3.on.aws
 | **Historique des notes** | `GET` | `/students/{studentId}/grades/history` | `ADMIN`, `STUDENT` |
 | **4. Changer le groupe d'un étudiant** | `PATCH` | `/students/{studentId}/group` | `ADMIN` |
 | **5. Résumé annuel (Notes + Moyenne)** | `GET` | `/students/{studentId}/years/{year}/summary` | `ADMIN`, `STUDENT`, `TEACHER` |
+| **6. Relevé PDF par email (Lien S3)** | `POST` | `/students/{studentId}/transcript` | `ADMIN`, `STUDENT` |
 
 ---
 
