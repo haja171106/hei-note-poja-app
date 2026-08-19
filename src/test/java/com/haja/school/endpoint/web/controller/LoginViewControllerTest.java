@@ -73,6 +73,45 @@ class LoginViewControllerTest {
 
   @Test
   @WithMockUser(
+      username = "hei.admin@admin.com",
+      roles = {"ADMIN"})
+  void adminCreateStudent_withAdminRole_returnsCreateStudentView() throws Exception {
+    when(cohortService.getAllCohorts()).thenReturn(Collections.emptyList());
+
+    mockMvc
+        .perform(get("/ui/admin/students"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("admin-create-student"))
+        .andExpect(model().attributeExists("cohorts"));
+
+    mockMvc
+        .perform(get("/ui/admin/students/create"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("admin-create-student"));
+  }
+
+  @Test
+  @WithMockUser(
+      username = "hei.admin@admin.com",
+      roles = {"ADMIN"})
+  void adminCreateTeacher_withAdminRole_returnsCreateTeacherView() throws Exception {
+    when(userRepository.findByRole(com.haja.school.model.Role.TEACHER))
+        .thenReturn(Collections.emptyList());
+
+    mockMvc
+        .perform(get("/ui/admin/teachers"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("admin-create-teacher"))
+        .andExpect(model().attributeExists("teachers"));
+
+    mockMvc
+        .perform(get("/ui/admin/teachers/create"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("admin-create-teacher"));
+  }
+
+  @Test
+  @WithMockUser(
       username = "hei.prof@teacher.com",
       roles = {"TEACHER"})
   void teacherDashboard_withTeacherRole_returnsTeacherView() throws Exception {

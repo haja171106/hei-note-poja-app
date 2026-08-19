@@ -43,6 +43,22 @@ public class LoginViewController {
     return "admin-dashboard";
   }
 
+  @GetMapping({"/ui/admin/students", "/ui/admin/students/create"})
+  @PreAuthorize("hasRole('ADMIN')")
+  public String adminCreateStudent(Principal principal, Model model) {
+    populateUserModel(principal, model);
+    model.addAttribute("cohorts", cohortService.getAllCohorts());
+    return "admin-create-student";
+  }
+
+  @GetMapping({"/ui/admin/teachers", "/ui/admin/teachers/create"})
+  @PreAuthorize("hasRole('ADMIN')")
+  public String adminCreateTeacher(Principal principal, Model model) {
+    populateUserModel(principal, model);
+    model.addAttribute("teachers", userRepository.findByRole(com.haja.school.model.Role.TEACHER));
+    return "admin-create-teacher";
+  }
+
   @GetMapping({"/ui/admin/promotions/{id}/graduates/export", "/promotions/{id}/graduates/export"})
   @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<byte[]> exportGraduatesExcel(@PathVariable UUID id) {
