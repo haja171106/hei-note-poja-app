@@ -422,7 +422,7 @@
                 }
                 const saved = await response.json();
                 const row = cell.closest('tr');
-                cell.innerHTML = renderGradeCell(cell.dataset.examId, cell.dataset.studentId, cell.dataset.studentRef, saved.value);
+                cell.outerHTML = renderGradeCell(cell.dataset.examId, cell.dataset.studentId, cell.dataset.studentRef, saved.value);
                 showToast('Grade saved for ' + cell.dataset.studentRef + '.', 'success');
                 refreshRowAverage(row);
             } catch (error) {
@@ -434,7 +434,7 @@
 
         function cancelGradeEdit(btn) {
             const cell = btn.closest('.grade-cell');
-            cell.innerHTML = renderGradeCell(
+            cell.outerHTML = renderGradeCell(
                 cell.dataset.examId,
                 cell.dataset.studentId,
                 cell.dataset.studentRef,
