@@ -441,18 +441,38 @@
                 cell.dataset.value === '' ? null : parseFloat(cell.dataset.value));
         }
 
-        async function refreshRowAverage(row) {
+        function refreshRowAverage(row) {
             const avgCell = row.querySelector('.avg-cell');
             if (!avgCell) {
                 return;
             }
-            const studentId = row.querySelector('.grade-cell').dataset.studentId;
-            const courseCard = row.closest('.course-card');
-            const studyYear = courseCard ? parseInt(courseCard.dataset.studyYear, 10) : 1;
-            try {
-                const summary = await fetchJson('/students/' + studentId + '/years/' + studyYear + '/summary');
-                avgCell.innerHTML = formatAverage(summary.overallAverage);
-            } catch {
+            const table = row.closest('table');
+            if (!table) return;
+            const headers = Array.from(table.querySelectorAll('thead th'));
+            const cells = Array.from(row.querySelectorAll('.grade-cell'));
+            let weightedSum = 0;
+            let hasGrade = false;
+            cells.forEach((cell, idx) => {
+                const rawVal = cell.dataset.value;
+                const val = (rawVal === '' || rawVal == null) ? null : parseFloat(rawVal);
+                const header = headers[idx + 1];
+                let coef = 1.0;
+                if (header) {
+                    const sub = header.querySelector('.sub');
+                    if (sub) {
+                        const match = sub.textContent.match(/coef\s+([0-9.]+)/i);
+                        if (match) coef = parseFloat(match[1]);
+                    }
+                }
+                if (val !== null && !isNaN(val)) {
+                    weightedSum += val * coef;
+                    hasGrade = true;
+                }
+            });
+            if (hasGrade) {
+                avgCell.innerHTML = formatAverage(Math.round(weightedSum * 100) / 100);
+            } else {
+                avgCell.innerHTML = formatAverage(null);
             }
         }
 
