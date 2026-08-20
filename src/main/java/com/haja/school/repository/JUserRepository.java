@@ -18,6 +18,8 @@ public interface JUserRepository extends JpaRepository<JUser, UUID> {
 
   boolean existsByEmail(String email);
 
+  boolean existsByRef(String ref);
+
   List<JUser> findByCohortId(UUID cohortId);
 
   List<JUser> findByRole(Role role);
