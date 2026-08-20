@@ -59,7 +59,7 @@ public class LoginViewController {
     return "admin-create-teacher";
   }
 
-  @GetMapping({"/ui/admin/promotions/{id}/graduates/export", "/promotions/{id}/graduates/export"})
+  @GetMapping("/ui/admin/promotions/{id}/graduates/export")
   @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<byte[]> exportGraduatesExcel(@PathVariable UUID id) {
     byte[] excelBytes = graduateService.exportGraduatesExcel(id);

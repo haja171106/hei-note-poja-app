@@ -210,6 +210,24 @@ class StudentGradingFlowIT extends FacadeIT {
     assertThat(historyResponse.getBody().get(0).getNewValue()).isEqualTo(15.0);
     assertThat(historyResponse.getBody().get(0).getOldValue()).isNull();
 
+    put(
+        "/exams/" + exam.getId() + "/grades/" + student.getId(),
+        GradeUpsertRequest.builder().value(16.0).reason("Correction").build(),
+        adminToken,
+        Grade.class);
+    ResponseEntity<List<GradeHistory>> updatedHistoryResponse =
+        getForList(
+            "/students/" + student.getId() + "/grades/history",
+            adminToken,
+            new ParameterizedTypeReference<>() {});
+    assertThat(updatedHistoryResponse.getBody()).hasSize(2);
+    assertThat(updatedHistoryResponse.getBody())
+        .anyMatch(
+            history ->
+                history.getOldValue() != null
+                    && history.getOldValue().equals(15.0)
+                    && history.getNewValue().equals(16.0));
+
     ResponseEntity<List<com.haja.school.model.Graduate>> graduatesResponse =
         getForList(
             "/promotions/" + cohort.getId() + "/graduates",
@@ -288,7 +306,7 @@ class StudentGradingFlowIT extends FacadeIT {
                     .ref("AVG" + uniqueSuffix.substring(0, 5))
                     .title("Weighted average test")
                     .credit(5)
-                    .semesterNumber(1)
+                    .semesterNumber(2)
                     .build(),
                 adminToken,
                 Course.class)
