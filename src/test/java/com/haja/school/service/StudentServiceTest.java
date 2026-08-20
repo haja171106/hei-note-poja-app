@@ -154,7 +154,7 @@ class StudentServiceTest {
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
     when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.paul@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(userRepository.save(any(JUser.class)))
@@ -187,7 +187,7 @@ class StudentServiceTest {
         StudentCreateRequest.builder().name("Solo").firstname("Alone").cohortId(cohortId).build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.alone@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(groupRepository.findByCohortId(cohortId)).thenReturn(Collections.emptyList());
@@ -216,7 +216,7 @@ class StudentServiceTest {
             .build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.jeanpierre@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(userRepository.save(any(JUser.class)))
@@ -238,7 +238,7 @@ class StudentServiceTest {
         StudentCreateRequest.builder().name("Ghost").firstname("").cohortId(cohortId).build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.student@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(userRepository.save(any(JUser.class)))
