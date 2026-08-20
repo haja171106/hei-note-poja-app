@@ -22,6 +22,8 @@ import com.haja.school.model.ReportStatus;
 import com.haja.school.model.Role;
 import com.haja.school.model.Student;
 import com.haja.school.model.Teacher;
+import com.haja.school.model.TeacherCourseBoard;
+import com.haja.school.model.TeacherGradeBoard;
 import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JUser;
@@ -208,6 +210,24 @@ class StudentGradingFlowIT extends FacadeIT {
     assertThat(historyResponse.getBody().get(0).getNewValue()).isEqualTo(15.0);
     assertThat(historyResponse.getBody().get(0).getOldValue()).isNull();
 
+    put(
+        "/exams/" + exam.getId() + "/grades/" + student.getId(),
+        GradeUpsertRequest.builder().value(16.0).reason("Correction").build(),
+        adminToken,
+        Grade.class);
+    ResponseEntity<List<GradeHistory>> updatedHistoryResponse =
+        getForList(
+            "/students/" + student.getId() + "/grades/history",
+            adminToken,
+            new ParameterizedTypeReference<>() {});
+    assertThat(updatedHistoryResponse.getBody()).hasSize(2);
+    assertThat(updatedHistoryResponse.getBody())
+        .anyMatch(
+            history ->
+                history.getOldValue() != null
+                    && history.getOldValue().equals(15.0)
+                    && history.getNewValue().equals(16.0));
+
     ResponseEntity<List<com.haja.school.model.Graduate>> graduatesResponse =
         getForList(
             "/promotions/" + cohort.getId() + "/graduates",
@@ -239,6 +259,128 @@ class StudentGradingFlowIT extends FacadeIT {
             String.class);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void teacherGradeUpdate_recalculatesWeightedAverage() {
+    String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
+
+    Cohort cohort =
+        post(
+                "/promotions",
+                CreateCohortRequest.builder().ref("Y").entryYear(entryYear).build(),
+                adminToken,
+                Cohort.class)
+            .getBody();
+    assertThat(cohort).isNotNull();
+
+    Student student =
+        post(
+                "/students",
+                StudentCreateRequest.builder()
+                    .name("Garnier")
+                    .firstname("Louis" + uniqueSuffix)
+                    .cohortId(cohort.getId())
+                    .build(),
+                adminToken,
+                Student.class)
+            .getBody();
+    assertThat(student).isNotNull();
+
+    Teacher teacher =
+        post(
+                "/teachers",
+                TeacherCreateRequest.builder()
+                    .name("Teacher")
+                    .firstname("Jean" + uniqueSuffix)
+                    .build(),
+                adminToken,
+                Teacher.class)
+            .getBody();
+    assertThat(teacher).isNotNull();
+
+    Course course =
+        post(
+                "/courses",
+                CourseCreateRequest.builder()
+                    .ref("AVG" + uniqueSuffix.substring(0, 5))
+                    .title("Weighted average test")
+                    .credit(5)
+                    .semesterNumber(2)
+                    .build(),
+                adminToken,
+                Course.class)
+            .getBody();
+    assertThat(course).isNotNull();
+
+    ResponseEntity<Void> assignment =
+        post(
+            "/courses/" + course.getId() + "/teachers",
+            TeacherAssignmentRequest.builder()
+                .teacherId(teacher.getId())
+                .academicYear(entryYear)
+                .build(),
+            adminToken,
+            Void.class);
+    assertThat(assignment.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+    Exam continuousAssessment =
+        post(
+                "/courses/" + course.getId() + "/exams",
+                ExamCreateRequest.builder()
+                    .label("Controle continu")
+                    .dateExam(Instant.now())
+                    .coefficient(0.4)
+                    .academicYear(entryYear)
+                    .build(),
+                adminToken,
+                Exam.class)
+            .getBody();
+    Exam finalExam =
+        post(
+                "/courses/" + course.getId() + "/exams",
+                ExamCreateRequest.builder()
+                    .label("Examen final")
+                    .dateExam(Instant.now())
+                    .coefficient(0.6)
+                    .academicYear(entryYear)
+                    .build(),
+                adminToken,
+                Exam.class)
+            .getBody();
+    assertThat(continuousAssessment).isNotNull();
+    assertThat(finalExam).isNotNull();
+
+    put(
+        "/exams/" + continuousAssessment.getId() + "/grades/" + student.getId(),
+        GradeUpsertRequest.builder().value(14.0).reason("Initial entry").build(),
+        adminToken,
+        Grade.class);
+    put(
+        "/exams/" + finalExam.getId() + "/grades/" + student.getId(),
+        GradeUpsertRequest.builder().value(14.0).reason("Initial entry").build(),
+        adminToken,
+        Grade.class);
+
+    TeacherGradeBoard initialBoard =
+        get("/teachers/" + teacher.getId() + "/grades", adminToken, TeacherGradeBoard.class)
+            .getBody();
+    assertThat(initialBoard).isNotNull();
+    TeacherCourseBoard initialCourse = initialBoard.getCourses().get(0);
+    assertThat(initialCourse.getStudentAverages().get(student.getId())).isEqualTo(14.0);
+
+    put(
+        "/exams/" + finalExam.getId() + "/grades/" + student.getId(),
+        GradeUpsertRequest.builder().value(15.0).reason("Correction").build(),
+        adminToken,
+        Grade.class);
+
+    TeacherGradeBoard updatedBoard =
+        get("/teachers/" + teacher.getId() + "/grades", adminToken, TeacherGradeBoard.class)
+            .getBody();
+    assertThat(updatedBoard).isNotNull();
+    TeacherCourseBoard updatedCourse = updatedBoard.getCourses().get(0);
+    assertThat(updatedCourse.getStudentAverages().get(student.getId())).isEqualTo(14.6);
   }
 
   @Test

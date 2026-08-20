@@ -24,9 +24,10 @@ public class MockS3Controller {
     this.mockS3BaseDir = Path.of(baseDir);
   }
 
-  @GetMapping("/{path:**}")
+  @GetMapping("/{*path}")
   public ResponseEntity<byte[]> download(@PathVariable String path) throws IOException {
-    Path filePath = mockS3BaseDir.resolve(path);
+    String relativePath = path.startsWith("/") ? path.substring(1) : path;
+    Path filePath = mockS3BaseDir.resolve(relativePath).normalize();
     if (!Files.exists(filePath)) {
       return ResponseEntity.notFound().build();
     }
