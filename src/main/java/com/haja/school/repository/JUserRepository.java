@@ -20,6 +20,7 @@ public interface JUserRepository extends JpaRepository<JUser, UUID> {
 
   List<JUser> findByCohortId(UUID cohortId);
 
+  @EntityGraph(attributePaths = "cohort")
   List<JUser> findByRole(Role role);
 
   List<JUser> findByRefStartingWith(String prefix);
