@@ -307,12 +307,30 @@ class TeacherServiceTest {
             .dateExam(Instant.now())
             .coefficient(1.0)
             .build();
+    JExam finalExam =
+        JExam.builder()
+            .id(UUID.randomUUID())
+            .course(course)
+            .academicYear(2026)
+            .label("Final")
+            .dateExam(Instant.now())
+            .coefficient(0.6)
+            .build();
+    exam.setCoefficient(0.4);
     JGrade grade =
         JGrade.builder()
             .id(UUID.randomUUID())
             .exam(exam)
             .student(student)
             .value(14.0)
+            .enteredAt(Instant.now())
+            .build();
+    JGrade finalGrade =
+        JGrade.builder()
+            .id(UUID.randomUUID())
+            .exam(finalExam)
+            .student(student)
+            .value(15.0)
             .enteredAt(Instant.now())
             .build();
     Student studentModel =
@@ -329,8 +347,8 @@ class TeacherServiceTest {
     when(userRepository.findByRole(Role.STUDENT)).thenReturn(List.of(student));
     when(studentGroupHistoryRepository.findByStudentIdInAndEndDateIsNull(any()))
         .thenReturn(Collections.emptyList());
-    when(examRepository.findAll()).thenReturn(List.of(exam));
-    when(gradeRepository.findByStudentIdIn(any())).thenReturn(List.of(grade));
+    when(examRepository.findAll()).thenReturn(List.of(exam, finalExam));
+    when(gradeRepository.findByStudentIdIn(any())).thenReturn(List.of(grade, finalGrade));
     when(courseService.filterStudentsForCourse(any(), any(), any()))
         .thenReturn(List.of(studentModel));
 
@@ -342,14 +360,14 @@ class TeacherServiceTest {
     assertEquals("PROG1", courseBoard.getCourse().getRef());
     assertEquals(1, courseBoard.getStudents().size());
     assertEquals("STD00001", courseBoard.getStudents().get(0).getRef());
-    assertEquals(1, courseBoard.getExams().size());
+    assertEquals(2, courseBoard.getExams().size());
     assertEquals("CC", courseBoard.getExams().get(0).getLabel());
-    assertEquals(1, courseBoard.getGrades().size());
+    assertEquals(2, courseBoard.getGrades().size());
     Grade gradeModel = courseBoard.getGrades().get(0);
     assertEquals(exam.getId(), gradeModel.getExamId());
     assertEquals(student.getId(), gradeModel.getStudentId());
     assertEquals(14.0, gradeModel.getValue());
-    assertEquals(14.0, courseBoard.getStudentAverages().get(student.getId()));
+    assertEquals(14.6, courseBoard.getStudentAverages().get(student.getId()));
   }
 
   @Test
