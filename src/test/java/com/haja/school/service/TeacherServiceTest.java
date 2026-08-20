@@ -369,6 +369,61 @@ class TeacherServiceTest {
   }
 
   @Test
+  void getTeacherGradeBoard_nullAverage_success() {
+    UUID teacherId = UUID.randomUUID();
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("admin@admin.com").role(Role.ADMIN).build();
+    JUser teacher = JUser.builder().id(teacherId).role(Role.TEACHER).build();
+    JCourse course =
+        JCourse.builder()
+            .id(UUID.randomUUID())
+            .ref("PROG1")
+            .title("Algorithms")
+            .credit(4)
+            .semesterNumber(1)
+            .build();
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .ref("STD00001")
+            .name("Doe")
+            .firstname("John")
+            .role(Role.STUDENT)
+            .build();
+    Student studentModel =
+        Student.builder()
+            .id(student.getId())
+            .ref(student.getRef())
+            .name(student.getName())
+            .firstname(student.getFirstname())
+            .build();
+
+    when(userRepository.findByEmail("admin@admin.com")).thenReturn(Optional.of(admin));
+    when(userRepository.findById(teacherId)).thenReturn(Optional.of(teacher));
+    when(courseRepository.findByTeacherId(teacherId)).thenReturn(List.of(course));
+    when(userRepository.findByRole(Role.STUDENT)).thenReturn(List.of(student));
+    when(studentGroupHistoryRepository.findByStudentIdInAndEndDateIsNull(any()))
+        .thenReturn(Collections.emptyList());
+    when(courseRepository.findAll()).thenReturn(List.of(course));
+    when(examRepository.findAll()).thenReturn(Collections.emptyList());
+    when(gradeRepository.findByStudentIdIn(any())).thenReturn(Collections.emptyList());
+    when(teacherCourseAssignmentRepository.findByTeacherId(teacherId))
+        .thenReturn(Collections.emptyList());
+    when(courseService.filterStudentsForCourse(any(), any(), any()))
+        .thenReturn(List.of(studentModel));
+    when(gradeCalculationService.computeTeacherPartialSummaryInMemory(
+            any(), anyInt(), any(), any(), any(), any(), any()))
+        .thenReturn(YearSummary.builder().overallAverage(null).build());
+
+    TeacherGradeBoard board = teacherService.getTeacherGradeBoard(teacherId, "admin@admin.com");
+
+    assertNotNull(board);
+    assertEquals(1, board.getCourses().size());
+    TeacherCourseBoard courseBoard = board.getCourses().get(0);
+    assertNull(courseBoard.getStudentAverages().get(student.getId()));
+  }
+
+  @Test
   void getTeacherGradeBoard_noCourses_returnsEmptyBoard() {
     UUID teacherId = UUID.randomUUID();
     JUser admin =
