@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,7 +45,7 @@ public class StudentService {
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cohort not found"));
 
-    String ref = generateStudentRef();
+    String ref = generateStudentRef(cohort.getEntryYear());
     String email = generateInstitutionalEmail(request.getFirstname());
     String rawPassword =
         StringUtils.hasText(request.getPassword())
@@ -256,22 +257,19 @@ public class StudentService {
     return yearsPassed * 2 + (currentMonth >= 9 ? 1 : 0);
   }
 
-  private String generateStudentRef() {
-    List<JUser> students = userRepository.findByRefStartingWith("STD");
-    int maxNumber = 0;
-    for (JUser user : students) {
-      String ref = user.getRef();
-      if (ref != null && ref.startsWith("STD")) {
-        try {
-          int num = Integer.parseInt(ref.substring(3));
-          if (num > maxNumber) {
-            maxNumber = num;
-          }
-        } catch (NumberFormatException ignored) {
-        }
+  private String generateStudentRef(int entryYear) {
+    int yearSuffix = Math.floorMod(entryYear, 100);
+
+    for (int attempt = 0; attempt < 1000; attempt++) {
+      int randomSuffix = ThreadLocalRandom.current().nextInt(1000);
+      String candidate = String.format("STD%02d%03d", yearSuffix, randomSuffix);
+      if (!userRepository.existsByRef(candidate)) {
+        return candidate;
       }
     }
-    return String.format("STD%05d", maxNumber + 1);
+
+    throw new ResponseStatusException(
+        HttpStatus.CONFLICT, "Unable to generate a unique student reference");
   }
 
   private String generateInstitutionalEmail(String firstname) {

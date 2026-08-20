@@ -66,7 +66,7 @@ class StudentServiceTest {
             .build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.john@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
 
@@ -83,7 +83,7 @@ class StudentServiceTest {
 
     assertNotNull(createdStudent);
     assertEquals(savedUserId, createdStudent.getId());
-    assertEquals("STD00001", createdStudent.getRef());
+    assertTrue(createdStudent.getRef().matches("STD24\\d{3}"));
     assertEquals("Doe", createdStudent.getName());
     assertEquals("John", createdStudent.getFirstname());
     assertEquals("hei.john@student.com", createdStudent.getEmail());
@@ -94,14 +94,12 @@ class StudentServiceTest {
   }
 
   @Test
-  void createStudent_incrementsExistingStudentRef() {
+  void createStudent_generatesUniqueReferenceWhenCandidateExists() {
     StudentCreateRequest request =
         StudentCreateRequest.builder().name("Smith").firstname("Jane").cohortId(cohortId).build();
 
-    JUser existingStudent = JUser.builder().ref("STD00005").role(Role.STUDENT).build();
-
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(List.of(existingStudent));
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.jane@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(userRepository.save(any(JUser.class)))
@@ -114,7 +112,7 @@ class StudentServiceTest {
 
     Student createdStudent = studentService.createStudent(request);
 
-    assertEquals("STD00006", createdStudent.getRef());
+    assertTrue(createdStudent.getRef().matches("STD24\\d{3}"));
     assertEquals("hei.jane@student.com", createdStudent.getEmail());
   }
 
@@ -124,7 +122,7 @@ class StudentServiceTest {
         StudentCreateRequest.builder().name("Dupont").firstname("Jean").cohortId(cohortId).build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.jean@student.com")).thenReturn(true);
     when(userRepository.existsByEmail("hei.jean1@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
@@ -156,7 +154,7 @@ class StudentServiceTest {
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
     when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.paul@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(userRepository.save(any(JUser.class)))
@@ -189,7 +187,7 @@ class StudentServiceTest {
         StudentCreateRequest.builder().name("Solo").firstname("Alone").cohortId(cohortId).build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.alone@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(groupRepository.findByCohortId(cohortId)).thenReturn(Collections.emptyList());
@@ -218,7 +216,7 @@ class StudentServiceTest {
             .build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.jeanpierre@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(userRepository.save(any(JUser.class)))
@@ -240,7 +238,7 @@ class StudentServiceTest {
         StudentCreateRequest.builder().name("Ghost").firstname("").cohortId(cohortId).build();
 
     when(cohortRepository.findById(cohortId)).thenReturn(Optional.of(cohort));
-    when(userRepository.findByRefStartingWith("STD")).thenReturn(Collections.emptyList());
+    when(userRepository.existsByRef(anyString())).thenReturn(false);
     when(userRepository.existsByEmail("hei.student@student.com")).thenReturn(false);
     when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     when(userRepository.save(any(JUser.class)))
