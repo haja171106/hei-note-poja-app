@@ -17,12 +17,10 @@ import com.haja.school.repository.JTeacherCourseAssignmentRepository;
 import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JExam;
-import com.haja.school.repository.model.JGrade;
-import com.haja.school.repository.model.JTeacherCourseAssignment;
 import com.haja.school.repository.model.JUser;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -80,6 +78,7 @@ public class TeacherService {
         .build();
   }
 
+  @Transactional(readOnly = true)
   public List<Course> getCoursesByTeacher(UUID teacherId, String callerEmail) {
     JUser caller =
         userRepository
@@ -106,6 +105,7 @@ public class TeacherService {
         .toList();
   }
 
+  @Transactional(readOnly = true)
   public TeacherGradeBoard getTeacherGradeBoard(UUID teacherId, String callerEmail) {
     JUser caller =
         userRepository
@@ -133,38 +133,38 @@ public class TeacherService {
     }
 
     List<JUser> allStudents = userRepository.findByRole(Role.STUDENT);
-    Map<UUID, JUser> studentById =
-        allStudents.stream().collect(Collectors.toMap(JUser::getId, student -> student));
-    Map<UUID, UUID> groupIdByStudent =
-        studentGroupHistoryRepository
-            .findByStudentIdInAndEndDateIsNull(allStudents.stream().map(JUser::getId).toList())
-            .stream()
-            .collect(
-                Collectors.toMap(
-                    history -> history.getStudent().getId(),
-                    history -> history.getGroup().getId(),
-                    (first, second) -> first));
+    Map<UUID, UUID> groupIdByStudent = new HashMap<>();
+    studentGroupHistoryRepository
+        .findByStudentIdInAndEndDateIsNull(allStudents.stream().map(JUser::getId).toList())
+        .forEach(
+            history -> {
+              if (history.getStudent() != null
+                  && history.getStudent().getId() != null
+                  && history.getGroup() != null) {
+                groupIdByStudent.putIfAbsent(
+                    history.getStudent().getId(), history.getGroup().getId());
+              }
+            });
 
-    List<JCourse> allCourses = courseRepository.findAll();
     Map<UUID, List<JExam>> examsByCourse =
         examRepository.findAll().stream()
+            .filter(exam -> exam.getCourse() != null && exam.getCourse().getId() != null)
             .collect(Collectors.groupingBy(exam -> exam.getCourse().getId()));
-    Map<UUID, Map<UUID, Double>> gradesByStudent =
-        gradeRepository.findByStudentIdIn(allStudents.stream().map(JUser::getId).toList()).stream()
-            .collect(
-                Collectors.groupingBy(
-                    grade -> grade.getStudent().getId(),
-                    Collectors.toMap(
-                        grade -> grade.getExam().getId(),
-                        JGrade::getValue,
-                        (first, second) -> second)));
-    Map<UUID, Set<Integer>> teacherAcademicYearsByCourse =
-        teacherCourseAssignmentRepository.findByTeacherId(teacher.getId()).stream()
-            .collect(
-                Collectors.groupingBy(
-                    assignment -> assignment.getCourse().getId(),
-                    Collectors.mapping(
-                        JTeacherCourseAssignment::getAcademicYear, Collectors.toSet())));
+
+    Map<UUID, Map<UUID, Double>> gradesByStudent = new HashMap<>();
+    gradeRepository
+        .findByStudentIdIn(allStudents.stream().map(JUser::getId).toList())
+        .forEach(
+            grade -> {
+              if (grade.getStudent() != null
+                  && grade.getStudent().getId() != null
+                  && grade.getExam() != null
+                  && grade.getExam().getId() != null) {
+                gradesByStudent
+                    .computeIfAbsent(grade.getStudent().getId(), k -> new HashMap<>())
+                    .put(grade.getExam().getId(), grade.getValue());
+              }
+            });
 
     List<TeacherCourseBoard> boards =
         courses.stream()
@@ -172,32 +172,32 @@ public class TeacherService {
                 course -> {
                   List<Student> students =
                       courseService.filterStudentsForCourse(course, allStudents, groupIdByStudent);
-                  List<Exam> exams =
-                      examsByCourse.getOrDefault(course.getId(), List.of()).stream()
-                          .map(this::toExamModel)
-                          .toList();
+                  List<JExam> courseExams = examsByCourse.getOrDefault(course.getId(), List.of());
+                  List<Exam> exams = courseExams.stream().map(this::toExamModel).toList();
                   List<Grade> grades =
-                      examsByCourse.getOrDefault(course.getId(), List.of()).stream()
+                      courseExams.stream()
                           .flatMap(exam -> examGrades(exam, gradesByStudent).stream())
                           .toList();
-                  int studyYear = (course.getSemesterNumber() + 1) / 2;
-                  Map<UUID, Double> studentAverages =
-                      students.stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Student::getId,
-                                  student ->
-                                      gradeCalculationService
-                                          .computeTeacherPartialSummaryInMemory(
-                                              studentById.get(student.getId()),
-                                              studyYear,
-                                              teacher,
-                                              allCourses,
-                                              examsByCourse,
-                                              gradesByStudent,
-                                              teacherAcademicYearsByCourse)
-                                          .getOverallAverage(),
-                                  (first, second) -> second));
+
+                  Map<UUID, Double> studentAverages = new HashMap<>();
+                  for (Student student : students) {
+                    Map<UUID, Double> studentGrades =
+                        gradesByStudent.getOrDefault(student.getId(), Map.of());
+                    double courseWeightedSum = 0.0;
+                    boolean hasGrade = false;
+                    for (JExam exam : courseExams) {
+                      Double value = studentGrades.get(exam.getId());
+                      if (value != null) {
+                        courseWeightedSum += value * exam.getCoefficient();
+                        hasGrade = true;
+                      }
+                    }
+                    if (hasGrade) {
+                      studentAverages.put(
+                          student.getId(), Math.round(courseWeightedSum * 100.0) / 100.0);
+                    }
+                  }
+
                   return TeacherCourseBoard.builder()
                       .course(toCourseModel(course))
                       .students(students)

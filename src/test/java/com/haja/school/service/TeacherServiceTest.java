@@ -2,7 +2,6 @@ package com.haja.school.service;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -14,7 +13,6 @@ import com.haja.school.model.Student;
 import com.haja.school.model.Teacher;
 import com.haja.school.model.TeacherCourseBoard;
 import com.haja.school.model.TeacherGradeBoard;
-import com.haja.school.model.YearSummary;
 import com.haja.school.repository.JCourseRepository;
 import com.haja.school.repository.JExamRepository;
 import com.haja.school.repository.JGradeRepository;
@@ -24,7 +22,6 @@ import com.haja.school.repository.JUserRepository;
 import com.haja.school.repository.model.JCourse;
 import com.haja.school.repository.model.JExam;
 import com.haja.school.repository.model.JGrade;
-import com.haja.school.repository.model.JTeacherCourseAssignment;
 import com.haja.school.repository.model.JUser;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -332,23 +329,10 @@ class TeacherServiceTest {
     when(userRepository.findByRole(Role.STUDENT)).thenReturn(List.of(student));
     when(studentGroupHistoryRepository.findByStudentIdInAndEndDateIsNull(any()))
         .thenReturn(Collections.emptyList());
-    when(courseRepository.findAll()).thenReturn(List.of(course));
     when(examRepository.findAll()).thenReturn(List.of(exam));
     when(gradeRepository.findByStudentIdIn(any())).thenReturn(List.of(grade));
-    when(teacherCourseAssignmentRepository.findByTeacherId(teacherId))
-        .thenReturn(
-            List.of(
-                JTeacherCourseAssignment.builder()
-                    .id(UUID.randomUUID())
-                    .teacher(teacher)
-                    .course(course)
-                    .academicYear(2026)
-                    .build()));
     when(courseService.filterStudentsForCourse(any(), any(), any()))
         .thenReturn(List.of(studentModel));
-    when(gradeCalculationService.computeTeacherPartialSummaryInMemory(
-            any(), anyInt(), any(), any(), any(), any(), any()))
-        .thenReturn(YearSummary.builder().overallAverage(14.0).build());
 
     TeacherGradeBoard board = teacherService.getTeacherGradeBoard(teacherId, "admin@admin.com");
 
@@ -366,6 +350,55 @@ class TeacherServiceTest {
     assertEquals(student.getId(), gradeModel.getStudentId());
     assertEquals(14.0, gradeModel.getValue());
     assertEquals(14.0, courseBoard.getStudentAverages().get(student.getId()));
+  }
+
+  @Test
+  void getTeacherGradeBoard_nullAverage_success() {
+    UUID teacherId = UUID.randomUUID();
+    JUser admin =
+        JUser.builder().id(UUID.randomUUID()).email("admin@admin.com").role(Role.ADMIN).build();
+    JUser teacher = JUser.builder().id(teacherId).role(Role.TEACHER).build();
+    JCourse course =
+        JCourse.builder()
+            .id(UUID.randomUUID())
+            .ref("PROG1")
+            .title("Algorithms")
+            .credit(4)
+            .semesterNumber(1)
+            .build();
+    JUser student =
+        JUser.builder()
+            .id(UUID.randomUUID())
+            .ref("STD00001")
+            .name("Doe")
+            .firstname("John")
+            .role(Role.STUDENT)
+            .build();
+    Student studentModel =
+        Student.builder()
+            .id(student.getId())
+            .ref(student.getRef())
+            .name(student.getName())
+            .firstname(student.getFirstname())
+            .build();
+
+    when(userRepository.findByEmail("admin@admin.com")).thenReturn(Optional.of(admin));
+    when(userRepository.findById(teacherId)).thenReturn(Optional.of(teacher));
+    when(courseRepository.findByTeacherId(teacherId)).thenReturn(List.of(course));
+    when(userRepository.findByRole(Role.STUDENT)).thenReturn(List.of(student));
+    when(studentGroupHistoryRepository.findByStudentIdInAndEndDateIsNull(any()))
+        .thenReturn(Collections.emptyList());
+    when(examRepository.findAll()).thenReturn(Collections.emptyList());
+    when(gradeRepository.findByStudentIdIn(any())).thenReturn(Collections.emptyList());
+    when(courseService.filterStudentsForCourse(any(), any(), any()))
+        .thenReturn(List.of(studentModel));
+
+    TeacherGradeBoard board = teacherService.getTeacherGradeBoard(teacherId, "admin@admin.com");
+
+    assertNotNull(board);
+    assertEquals(1, board.getCourses().size());
+    TeacherCourseBoard courseBoard = board.getCourses().get(0);
+    assertNull(courseBoard.getStudentAverages().get(student.getId()));
   }
 
   @Test
